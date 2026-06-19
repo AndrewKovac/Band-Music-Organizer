@@ -385,7 +385,7 @@
           <div class="ed-row">
             <span class="ed-lbl">Scale</span>
             <button class="navbtn ed-step" data-ed="scale" data-d="-0.05">−</button>
-            <input type="range" id="ed-scale" min="0.3" max="2.5" step="0.01" value="1">
+            <input type="range" id="ed-scale" min="0.3" max="1" step="0.01" value="1">
             <button class="navbtn ed-step" data-ed="scale" data-d="0.05">+</button>
             <span class="ed-val" id="ed-scale-v">100%</span>
           </div>
@@ -969,7 +969,7 @@ function refreshEditbar() {
 function setEdit(key, val) {
   const part = curPart(), t = part && part.t; if (!t) return;
   if (key === "rot") { t.rot = clamp(val, -180, 180); part.straightened = true; }   // manual rotation wins over auto
-  else if (key === "scale") t.scale = clamp(val, 0.3, 2.5);
+  else if (key === "scale") t.scale = clamp(val, 0.3, 1);
   else if (key === "skew") t.skew = clamp(val, -20, 20);
   // surface the alignment grid while the user is adjusting
   $("#page-holder").classList.add("show-grid"); $("#ed-grid").classList.add("on");
@@ -1454,8 +1454,23 @@ async function addPvItem(sheet, r, box, pxPerPt, PAGE_H, S) {
     item.classList.add("drag");
     const sx = e.clientX, sy = e.clientY, sdx = t.dx || 0, sdy = t.dy || 0;
     const move = ev => {
-      t.dx = sdx + (ev.clientX - sx) / pxPerPt;
-      t.dy = sdy - (ev.clientY - sy) / pxPerPt;   // screen-down → PDF-down
+      const rawDx = sdx + (ev.clientX - sx) / pxPerPt;
+      const rawDy = sdy - (ev.clientY - sy) / pxPerPt;   // screen-down → PDF-down
+      const m = fitMetrics(box, clip.right - clip.left, clip.top - clip.bottom, t);
+      // candidate center, then soft-snap edges & centerlines to the safe-area box
+      let Cx = box.x + box.w / 2 + rawDx, Cy = box.y + box.h - m.halfH + rawDy;
+      const SNAP = 7;   // points
+      if (Math.abs((Cx - m.halfW) - box.x) <= SNAP) Cx = box.x + m.halfW;             // left edge
+      else if (Math.abs((Cx + m.halfW) - (box.x + box.w)) <= SNAP) Cx = box.x + box.w - m.halfW; // right edge
+      else if (Math.abs(Cx - (box.x + box.w / 2)) <= SNAP) Cx = box.x + box.w / 2;    // horizontal center
+      if (Math.abs((Cy + m.halfH) - (box.y + box.h)) <= SNAP) Cy = box.y + box.h - m.halfH;     // top edge
+      else if (Math.abs((Cy - m.halfH) - box.y) <= SNAP) Cy = box.y + m.halfH;        // bottom edge
+      else if (Math.abs(Cy - (box.y + box.h / 2)) <= SNAP) Cy = box.y + box.h / 2;    // vertical center
+      // clamp inside the box and store back as offsets, so there's no drag dead-zone
+      Cx = clamp(Cx, box.x + m.halfW, box.x + box.w - m.halfW);
+      Cy = clamp(Cy, box.y + m.halfH, box.y + box.h - m.halfH);
+      t.dx = Cx - (box.x + box.w / 2);
+      t.dy = Cy - (box.y + box.h - m.halfH);
       layout();
     };
     const up = () => {
@@ -1470,7 +1485,7 @@ async function addPvItem(sheet, r, box, pxPerPt, PAGE_H, S) {
   // scroll to scale
   item.addEventListener("wheel", e => {
     e.preventDefault();
-    t.scale = clamp((t.scale || 1) * (e.deltaY < 0 ? 1.05 : 1 / 1.05), 0.3, 2.5);
+    t.scale = clamp((t.scale || 1) * (e.deltaY < 0 ? 1.05 : 1 / 1.05), 0.3, 1);
     layout();
   }, { passive: false });
 
@@ -1493,7 +1508,7 @@ async function addPvItem(sheet, r, box, pxPerPt, PAGE_H, S) {
     const d0 = Math.hypot(e.clientX - cx, e.clientY - cy) || 1, s0 = t.scale || 1;
     const move = ev => {
       const d = Math.hypot(ev.clientX - cx, ev.clientY - cy);
-      t.scale = clamp(s0 * d / d0, 0.3, 2.5);
+      t.scale = clamp(s0 * d / d0, 0.3, 1);
       layout();
     };
     const up = () => { item.classList.remove("drag"); handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); };
@@ -1651,23 +1666,31 @@ async function placeContent(outDoc, outPage, plPage, clip, box, t) {
     xSkew: PDFLib.degrees(t.skew || 0),
   });
 }
-/* shared layout: returns the draw anchor (x,y), drawn size (w,h) and the box center,
-   so the build and the on-screen preview stay pixel-identical. */
-function fitBox(box, srcW, srcH, t) {
+/* size + rotated bounding box of a part once placed in its box.
+   Scale is capped at the fit-to-box scale so a part can never spill past the
+   safe area onto the punch-hole margin, the page edge, or the other half of a
+   2-up sheet. Shared by the layout and the drag/snap math. */
+function fitMetrics(box, srcW, srcH, t) {
   t = t || defT();
   const rad = (t.rot || 0) * Math.PI / 180;
   const c = Math.abs(Math.cos(rad)), s = Math.abs(Math.sin(rad));
   const aabbW = srcW * c + srcH * s, aabbH = srcW * s + srcH * c;
-  const sc = Math.min(box.w / aabbW, box.h / aabbH) * (t.scale || 1);
-  const w = srcW * sc, h = srcH * sc;
-  const Cx = box.x + box.w / 2 + (t.dx || 0);
-  // Top-anchor the content within its box: the top of the rotated bounding box
-  // sits at the box's top edge, so trimmed music starts at the top of the page
-  // (like a real sheet) instead of floating centered with empty margins above.
-  const Cy = box.y + box.h - (aabbH * sc) / 2 + (t.dy || 0);
-  const cos = Math.cos(rad), sin = Math.sin(rad);
+  const sc = Math.min(box.w / aabbW, box.h / aabbH) * clamp(t.scale || 1, 0.3, 1);
+  return { rad, sc, halfW: (aabbW * sc) / 2, halfH: (aabbH * sc) / 2 };
+}
+/* shared layout: returns the draw anchor (x,y), drawn size (w,h) and the box center,
+   so the build and the on-screen preview stay pixel-identical. The content is
+   top-anchored (starts at the top of the box like a real sheet) and clamped to
+   stay fully inside the box. */
+function fitBox(box, srcW, srcH, t) {
+  t = t || defT();
+  const m = fitMetrics(box, srcW, srcH, t);
+  const w = srcW * m.sc, h = srcH * m.sc;
+  const Cx = clamp(box.x + box.w / 2 + (t.dx || 0), box.x + m.halfW, box.x + box.w - m.halfW);
+  const Cy = clamp(box.y + box.h - m.halfH + (t.dy || 0), box.y + m.halfH, box.y + box.h - m.halfH);
+  const cos = Math.cos(m.rad), sin = Math.sin(m.rad);
   return {
-    w, h, Cx, Cy, sc,
+    w, h, Cx, Cy, sc: m.sc,
     x: Cx - (w / 2) * cos + (h / 2) * sin,
     y: Cy - (w / 2) * sin - (h / 2) * cos,
   };
