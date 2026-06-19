@@ -1,0 +1,8 @@
+# Local Claude Code settings / preview config
+.claude/
+
+# Sheet-music PDFs are personal/copyrighted — keep them out of the repo
+*.pdf
+
+# OS cruft
+.DS_Store

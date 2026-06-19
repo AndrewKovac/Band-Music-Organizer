@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>March Prep — Part Book Builder</title>
+
+<!-- Mercury type: arcadia / arcadiaDisplay substitute = Inter (variable, light weights) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;360;400;480;530&display=swap" rel="stylesheet">
+
+<!-- Required: PDF render + PDF build. Optional: OCR + zip. All from cdnjs; everything runs locally in your browser. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" onerror="window.__noZip=1"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js" onerror="window.__noOCR=1"></script>
+
+<style>
+  :root{
+    /* ---- Mercury palette ---- */
+    --color-mercury-blue:#5266eb;
+    --color-ghost-blue:#cdddff;
+    --color-deep-space:#171721;
+    --color-midnight-slate:#1e1e2a;
+    --color-graphite:#272735;
+    --color-lead:#70707d;
+    --color-starlight:#ededf3;
+    --color-silver:#c3c3cc;
+    --color-pure-white:#ffffff;
+
+    /* surfaces */
+    --abyss:#171721; --surface:#1e1e2a; --interactive:#272735;
+    --line:#2f2f3d; --line-soft:#272735;
+
+    /* legacy aliases kept so inline JS styles keep resolving */
+    --faint:#70707d;            /* lead — muted UI text */
+    --ok:#7f9af2;               /* tagged — desaturated toward the accent */
+    --warn:#c9a86a;             /* restrained amber */
+    --skip:#70707d;             /* ignored — lead */
+    --cont:#cdddff;             /* continuation — ghost blue */
+    --danger:#d08a7e;
+    --brass:#5266eb;            /* maps the old accent onto Mercury blue */
+    --brass-dim:#3f4fc4;
+
+    --r:8px;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:'Inter',ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--abyss);color:var(--color-starlight);font-family:var(--sans);font-size:14px;line-height:1.5;letter-spacing:.005em;-webkit-font-smoothing:antialiased;font-feature-settings:"ss01" on}
+  button{font-family:inherit;cursor:pointer}
+  .mono{font-family:var(--mono)}
+
+  /* ---- top bar ---- */
+  header{position:sticky;top:0;z-index:20;background:rgba(23,23,33,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:20px;padding:14px 24px}
+  .brand{display:flex;align-items:baseline;gap:12px;white-space:nowrap}
+  .brand b{font-size:18px;letter-spacing:.01em;color:var(--color-starlight);font-weight:480}
+  .brand span{font-size:11px;color:var(--color-lead);letter-spacing:.14em;text-transform:uppercase}
+  nav{display:flex;gap:4px;flex:1}
+  .tab{background:none;border:none;color:var(--color-silver);padding:8px 16px;border-radius:40px;font-size:14px;font-weight:400;display:flex;align-items:center;gap:9px;transition:background .15s,color .15s}
+  .tab .n{font-family:var(--mono);font-size:11px;color:var(--color-lead);border:1px solid var(--line);border-radius:20px;padding:1px 7px;transition:.15s}
+  .tab:hover{background:var(--interactive);color:var(--color-starlight)}
+  .tab.on{background:rgba(205,221,255,.12);color:var(--color-starlight)}
+  .tab.on .n{color:var(--color-ghost-blue);border-color:rgba(205,221,255,.35)}
+  .tab:disabled{opacity:.35;cursor:not-allowed}
+  .meter{font-size:13px;color:var(--color-silver);white-space:nowrap;text-align:right;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+  .meter b{color:var(--color-starlight);font-weight:480}
+
+  main{padding:56px 24px 112px;max-width:1200px;margin:0 auto}
+  .view{display:none;animation:fade .18s ease}
+  .view.on{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.view,*{animation:none!important;transition:none!important}}
+
+  h2.sec{font-size:32px;line-height:1.2;color:var(--color-starlight);margin:0 0 12px;font-weight:360;letter-spacing:.01em}
+  p.lede{color:var(--color-silver);margin:0 0 40px;max-width:64ch;font-size:16px;line-height:1.5}
+
+  /* ---- panels ---- */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:24px;margin-bottom:20px}
+  .panel h3{margin:0 0 6px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-silver);font-weight:480}
+  .panel .hint{color:var(--color-lead);font-size:13px;margin:0 0 16px;line-height:1.5}
+  label.fld{display:block;font-size:12px;color:var(--color-silver);margin-bottom:7px;letter-spacing:.02em}
+  textarea,input[type=text],input[type=number],select{
+    background:var(--abyss);border:1px solid var(--line);color:var(--color-starlight);border-radius:8px;padding:10px 12px;font-size:14px;width:100%;font-family:inherit}
+  textarea{font-family:var(--mono);font-size:12.5px;line-height:1.6;min-height:230px;resize:vertical;white-space:pre;border-radius:8px}
+  input::placeholder,textarea::placeholder{color:var(--color-lead)}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--color-mercury-blue);box-shadow:0 0 0 3px rgba(82,102,235,.28)}
+  .grid{display:grid;gap:16px}
+  .grid.s{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+  /* primary pill CTA */
+  .btn{background:var(--color-mercury-blue);color:var(--color-pure-white);border:none;border-radius:32px;padding:14px 28px;font-weight:480;font-size:15px;letter-spacing:.01em;transition:filter .15s,opacity .15s}
+  .btn:hover{filter:brightness(1.1)}
+  .btn:disabled{background:var(--interactive);color:var(--color-lead);cursor:not-allowed;filter:none}
+  /* secondary pill */
+  .btn.ghost{background:rgba(205,221,255,.1);border:none;color:var(--color-starlight);font-weight:400}
+  .btn.ghost:hover{background:rgba(205,221,255,.18);filter:none}
+  .btn.ghost:disabled{background:var(--interactive);color:var(--color-lead)}
+  .btn.sm{padding:8px 18px;font-size:13px}
+
+  .banner{border-radius:4px;padding:12px 16px;font-size:13.5px;line-height:1.5;margin-bottom:16px;border:1px solid}
+  .banner.warn{background:rgba(201,168,106,.08);border-color:rgba(201,168,106,.35);color:#dcc394}
+  .banner.bad{background:rgba(208,138,126,.08);border-color:rgba(208,138,126,.4);color:#e0a99e}
+  .banner.ok{background:rgba(82,102,235,.08);border-color:rgba(82,102,235,.4);color:var(--color-ghost-blue)}
+
+  /* ---- drop zone + song list ---- */
+  .drop{border:1px dashed var(--color-lead);border-radius:4px;padding:56px 34px;text-align:center;color:var(--color-silver);background:var(--surface);transition:.15s}
+  .drop.hot{border-color:var(--color-mercury-blue);background:var(--interactive);color:var(--color-starlight);box-shadow:0 0 0 3px rgba(82,102,235,.18)}
+  .drop b{color:var(--color-starlight);font-weight:480}
+  table.songs{width:100%;border-collapse:collapse;margin-top:8px}
+  table.songs th{text-align:left;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-lead);font-weight:480;padding:10px 12px;border-bottom:1px solid var(--line)}
+  table.songs td{padding:12px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  table.songs tr:hover td{background:var(--interactive)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:32px;overflow:hidden}
+  .seg button{background:transparent;border:none;color:var(--color-silver);padding:6px 16px;font-size:12.5px;transition:.15s}
+  .seg button.on{background:var(--color-mercury-blue);color:var(--color-pure-white);font-weight:480}
+  .tag-state{font-size:12px;font-variant-numeric:tabular-nums}
+  .untag-link{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px}
+  .untag-link:hover{color:var(--color-ghost-blue)}
+  .meter.clickable{cursor:pointer}
+  .meter.clickable:hover b{color:var(--color-ghost-blue)}
+  .x{color:var(--color-lead);background:none;border:none;font-size:18px;line-height:1;padding:3px 8px;border-radius:50%;transition:.15s}
+  .x:hover{color:var(--danger);background:var(--interactive)}
+
+  /* ---- TAG view (the workbench) ---- */
+  .tag-wrap{display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start}
+  @media(max-width:900px){.tag-wrap{grid-template-columns:1fr}}
+  .desk-page{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:20px;display:flex;flex-direction:column;align-items:center;min-height:540px;justify-content:center}
+  .desk-page img{max-width:100%;max-height:74vh;background:#fff;border-radius:2px}
+  .desk-page .empty{color:var(--color-lead);text-align:center}
+  .pagebar{display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:16px;gap:12px}
+  .pagebar .where{font-size:13px;color:var(--color-silver);font-variant-numeric:tabular-nums}
+  .pagebar .where b{color:var(--color-starlight);font-weight:480}
+  .navbtn{background:rgba(205,221,255,.1);border:none;color:var(--color-starlight);border-radius:32px;padding:6px 16px;font-size:13px;font-weight:400;transition:.15s}
+  .navbtn:hover{background:rgba(205,221,255,.18)}
+  .navbtn.on{background:var(--color-mercury-blue);color:var(--color-pure-white)}
+  .navbtn.ico{padding:6px 12px;font-size:16px;line-height:1}
+  .navbtn:disabled{opacity:.35;cursor:not-allowed}
+
+  .rail{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:18px;position:sticky;top:84px}
+  .guess{background:var(--interactive);border:1px solid rgba(82,102,235,.45);border-radius:4px;padding:11px 13px;margin-bottom:12px;font-size:13.5px;color:var(--color-starlight);display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .guess.none{background:var(--interactive);border-color:var(--line);color:var(--color-lead)}
+  .guess b{color:var(--color-ghost-blue);font-weight:480}
+  .srch{margin-bottom:10px;border-radius:32px!important;padding-left:16px!important;padding-right:16px!important}
+  .ilist{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:4px}
+  .iitem{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line-soft);font-size:13.5px;color:var(--color-silver);cursor:pointer;transition:.1s}
+  .iitem:last-child{border-bottom:none}
+  .iitem:hover,.iitem.hi{background:var(--color-mercury-blue);color:var(--color-pure-white)}
+  .iitem .k{font-family:var(--mono);font-size:11px;color:var(--color-lead);min-width:16px}
+  .iitem:hover .k,.iitem.hi .k{color:rgba(255,255,255,.7)}
+  .iitem .cur{margin-left:auto;font-size:11px;font-family:var(--mono)}
+  .iitem:hover .cur,.iitem.hi .cur{color:var(--color-pure-white)!important}
+  .keys{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+  .keyrow{display:flex;gap:8px}
+  .keyrow button{flex:1;font-size:12.5px;padding:8px 12px}
+  kbd{font-family:var(--mono);font-size:11px;background:var(--abyss);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--color-silver)}
+  .legend{margin-top:16px;font-size:11.5px;color:var(--color-lead);display:flex;flex-wrap:wrap;gap:12px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+  /* page filmstrip */
+  .strip{display:flex;gap:6px;overflow-x:auto;padding:12px 2px;margin-top:12px}
+  .chip{flex:0 0 auto;width:32px;height:32px;border-radius:4px;border:1px solid var(--line);background:var(--surface);
+    font-family:var(--mono);font-size:11px;color:var(--color-silver);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:.1s}
+  .chip.cur{outline:2px solid var(--color-mercury-blue);outline-offset:1px}
+  .chip[data-s=done]{background:rgba(82,102,235,.16);color:var(--color-ghost-blue);border-color:rgba(82,102,235,.45)}
+  .chip[data-s=cont]{background:rgba(205,221,255,.1);color:var(--color-ghost-blue);border-color:rgba(205,221,255,.3)}
+  .chip[data-s=skip]{background:var(--interactive);color:var(--color-lead)}
+
+  /* ---- BUILD view ---- */
+  .bk-row{border-bottom:1px solid var(--line-soft);cursor:pointer;transition:background .12s}
+  .bk-row:hover,.bk-row:focus{background:var(--interactive);outline:none}
+  .bk{display:grid;grid-template-columns:1fr auto auto auto;gap:12px;align-items:center;padding:12px;font-size:13.5px}
+  .bk .nm{color:var(--color-starlight);font-weight:400}
+  .bk-miss{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 12px 12px 12px;margin-top:-2px}
+  .miss-lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--warn)}
+  .miss-chip{background:rgba(201,168,106,.12);border:1px solid rgba(201,168,106,.3);color:#dcc394;border-radius:32px;padding:2px 11px;font-size:12px;cursor:pointer;transition:.12s}
+  .miss-chip:hover{background:rgba(201,168,106,.22)}
+  .bk .ct{font-size:12.5px;color:var(--color-lead);font-variant-numeric:tabular-nums}
+  .pill{font-size:11.5px;padding:2px 11px;border-radius:20px;border:1px solid;font-variant-numeric:tabular-nums}
+  .pill.full{color:var(--color-silver);border-color:var(--line)}
+  .pill.lyre{color:var(--color-ghost-blue);border-color:rgba(205,221,255,.3)}
+  .progress{height:8px;border-radius:20px;background:var(--abyss);border:1px solid var(--line);overflow:hidden;margin:14px 0}
+  .progress > i{display:block;height:100%;width:0;background:var(--color-mercury-blue);transition:width .2s}
+  .stat{font-size:13px;color:var(--color-silver);min-height:18px}
+  a.dl{color:var(--color-ghost-blue);text-decoration:none;font-size:13px}
+  a.dl:hover{text-decoration:underline}
+
+  /* ---- per-page edit bar (tag view) ---- */
+  .editbar{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:14px 16px}
+  .editbar.edited{border-color:rgba(82,102,235,.5)}
+  .editbar-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-silver);font-weight:480;margin-bottom:10px}
+  .ed-row{display:flex;align-items:center;gap:10px;margin:8px 0}
+  .ed-lbl{width:52px;font-size:12.5px;color:var(--color-silver);flex:0 0 auto}
+  .ed-val{width:48px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--color-starlight);flex:0 0 auto}
+  .ed-step{padding:4px 10px;font-size:12px;flex:0 0 auto}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:20px;background:var(--interactive);border:none;padding:0;outline:none;box-shadow:none}
+  input[type=range]:focus{box-shadow:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--color-mercury-blue);cursor:pointer;border:2px solid var(--color-starlight)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--color-mercury-blue);cursor:pointer;border:2px solid var(--color-starlight)}
+
+  /* ---- instrument-list checkbox (multi-book membership) ---- */
+  .iitem .nm{flex:1}
+  .iitem.sel{color:var(--color-starlight)}
+  .ck{flex:0 0 auto;width:16px;height:16px;border-radius:4px;border:1.5px solid var(--color-lead);background:transparent;position:relative;transition:.12s}
+  .ck:hover{border-color:var(--color-ghost-blue)}
+  .ck.on{background:var(--color-ghost-blue);border-color:var(--color-ghost-blue)}
+  .ck.on.primary{background:var(--color-mercury-blue);border-color:var(--color-mercury-blue)}
+  .ck.on::after{content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--abyss);font-weight:600}
+  .iitem:hover .ck,.iitem.hi .ck{border-color:rgba(255,255,255,.6)}
+  .iitem:hover .ck.on,.iitem.hi .ck.on{border-color:var(--color-pure-white)}
+  .iitem:hover .ck.on::after,.iitem.hi .ck.on::after{color:var(--color-mercury-blue)}
+  .chip.multi::after{content:"";position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:var(--color-ghost-blue);border:1px solid var(--surface)}
+
+  /* ---- alignment grid / safe zone (tag edit) ---- */
+  #page-holder{position:relative;width:100%;display:flex;align-items:center;justify-content:center}
+  .grid-ov{position:absolute;pointer-events:none;display:none;border:1px solid rgba(82,102,235,.55)}
+  #page-holder.show-grid .grid-ov{display:block}
+  .grid-ov .g{position:absolute;background:rgba(205,221,255,.28)}
+  .grid-ov .v1{left:33.33%;top:0;bottom:0;width:1px}
+  .grid-ov .v2{left:66.66%;top:0;bottom:0;width:1px}
+  .grid-ov .h1{top:33.33%;left:0;right:0;height:1px}
+  .grid-ov .h2{top:66.66%;left:0;right:0;height:1px}
+  .grid-ov .cx{left:50%;top:0;bottom:0;width:1px;background:rgba(82,102,235,.7)}
+  .grid-ov .cy{top:50%;left:0;right:0;height:1px;background:rgba(82,102,235,.7)}
+
+  /* ---- preview scale handle + delete + safe area ---- */
+  .pv-handle{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:50%;background:var(--color-mercury-blue);border:2px solid var(--color-pure-white);cursor:nwse-resize;opacity:0;transition:opacity .12s;z-index:5}
+  .pv-item:hover .pv-handle,.pv-item.drag .pv-handle{opacity:1}
+  .pv-del{position:absolute;right:-9px;top:-9px;width:18px;height:18px;border-radius:50%;background:var(--danger);color:var(--abyss);border:none;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .12s;z-index:6;padding:0;font-weight:600}
+  .pv-item:hover .pv-del{opacity:1}
+  .pv-del:hover{filter:brightness(1.15)}
+  .pv-box{position:absolute;z-index:0;pointer-events:none;border:1px dashed rgba(112,112,125,.6)}
+
+  /* ---- build rows: preview affordance ---- */
+  .bk-go{font-size:12px;color:var(--color-lead);margin-left:8px;opacity:0;transition:.15s}
+  .bk-row:hover .bk-go,.bk-row:focus .bk-go{opacity:1;color:var(--color-ghost-blue)}
+
+  /* ---- build preview modal ---- */
+  [hidden]{display:none!important}
+  .modal{position:fixed;inset:0;z-index:50;background:rgba(10,10,16,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:stretch;justify-content:center;padding:32px}
+  .modal-card{background:var(--surface);border:1px solid var(--line);border-radius:4px;width:100%;max-width:1100px;display:flex;flex-direction:column;overflow:hidden}
+  .modal-bar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 24px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .modal-title{font-size:21px;font-weight:360;color:var(--color-starlight)}
+  .modal-title b{font-weight:480}
+  .modal-title #pv-sub{font-size:12px;color:var(--color-lead);margin-left:10px;font-variant-numeric:tabular-nums}
+  .modal-body{overflow:auto;padding:28px 24px;display:flex;flex-wrap:wrap;gap:28px;align-content:flex-start;justify-content:center}
+  .pv-loading{color:var(--color-lead);padding:60px;font-size:13px}
+  .pv-sheet-wrap{display:flex;flex-direction:column;gap:8px;align-items:center}
+  .pv-cap{font-size:11.5px;color:var(--color-lead);letter-spacing:.04em;text-transform:uppercase}
+  .pv-page{position:relative;background:#fff;border-radius:2px;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
+  .pv-hole{position:absolute;border-radius:50%;background:rgba(82,102,235,.18);border:1.5px solid var(--color-mercury-blue);z-index:3;pointer-events:none}
+  .pv-guide{position:absolute;z-index:2;pointer-events:none;background:rgba(82,102,235,.35)}
+  .pv-guide.left{top:0;bottom:0;left:36px;width:1px}
+  .pv-guide.right{top:0;bottom:0;right:36px;width:1px}
+  .pv-guide.top{left:0;right:0;top:36px;height:1px}
+  .pv-guide.bottom{left:0;right:0;bottom:36px;height:1px}
+  .pv-item{position:absolute;z-index:1;background-repeat:no-repeat;cursor:grab;outline:1px dashed transparent;transform-origin:center center}
+  .pv-item:hover{outline-color:rgba(82,102,235,.6)}
+  .pv-item.drag{cursor:grabbing;outline:1px solid var(--color-mercury-blue);z-index:4}
+  @media(max-width:680px){.modal{padding:0}.modal-card{max-width:100%}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>March&nbsp;Prep</b><span>part book builder · v1</span></div>
+  <nav>
+    <button class="tab on" data-go="setup"><span class="n">1</span> Setup</button>
+    <button class="tab" data-go="songs"><span class="n">2</span> Songs</button>
+    <button class="tab" data-go="tag"><span class="n">3</span> Tag</button>
+    <button class="tab" data-go="build"><span class="n">4</span> Build</button>
+  </nav>
+  <div class="meter" id="meter">—</div>
+</header>
+
+<main>
+  <!-- ============ SETUP ============ -->
+  <section class="view on" id="v-setup">
+    <h2 class="sec">Set up your instruments and page sizing</h2>
+    <p class="lede">Everything below drives the whole run. The instrument list is your vocabulary — it powers both the tagging shortcuts and the OCR guesses, so name the books exactly how you want the output files named, and list the label variants you actually see on the page.</p>
+    <div id="lib-banner"></div>
+
+    <div class="grid" style="grid-template-columns:1.3fr 1fr">
+      <div class="panel">
+        <h3>Instrument list</h3>
+        <p class="hint">One per line: <span class="mono">Canonical name | alias, alias, alias</span>. Lines starting with # are ignored. Aliases are matched case-insensitively against the corner label.</p>
+        <textarea id="vocab" spellcheck="false"></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="btn ghost sm" id="vocab-reset">Restore defaults</button>
+          <span class="hint" id="vocab-count"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Page &amp; binding</h3>
+        <p class="hint">Output is US Letter (8.5×11). Music is trimmed to its ink, then scaled to fill the space minus the binding gutter.</p>
+        <div class="grid s">
+          <div><label class="fld">Binding gutter (in)</label><input type="number" id="s-gutter" value="0.5" min="0" max="2" step="0.05"></div>
+          <div><label class="fld">Outer margin (in)</label><input type="number" id="s-margin" value="0.25" min="0" max="1" step="0.05"></div>
+          <div><label class="fld">2-up center gap (in)</label><input type="number" id="s-gap" value="0.3" min="0" max="1" step="0.05"></div>
+        </div>
+        <div class="grid s" style="margin-top:12px">
+          <div><label class="fld">Binding edge</label>
+            <select id="s-edge"><option value="left">Left (3-hole)</option><option value="top">Top</option></select></div>
+          <div><label class="fld">Printing</label>
+            <select id="s-duplex"><option value="1">Double-sided (flip on long edge)</option><option value="0">Single-sided</option></select></div>
+          <div><label class="fld">Trim to content</label>
+            <select id="s-trim"><option value="1">On — maximize size</option><option value="0">Off — keep full page</option></select></div>
+        </div>
+        <p class="hint" style="margin-top:14px">Gutter is the punch margin kept clear on the binding edge. With <b>double-sided</b> printing the gutter alternates each page — holes on the binding edge for fronts, on the opposite edge for backs — so the punch lines up through the whole stack. Trim removes whitespace so the notes get as big as possible.</p>
+      </div>
+    </div>
+    <div class="row"><button class="btn" data-go="songs">Next: add songs →</button></div>
+  </section>
+
+  <!-- ============ SONGS ============ -->
+  <section class="view" id="v-songs">
+    <h2 class="sec">Add your song PDFs</h2>
+    <p class="lede">Drop in one PDF per song (multi-part files are fine — each page being a different player is exactly what the tagger sorts out). On import, pages holding <b>two stacked parts</b> are split automatically, and each part is framed as <b>Lyre</b> (two share a page) or <b>Full page</b>. Use the toggle to set a song's frames in bulk, or change any part individually in Tag.</p>
+
+    <div class="drop" id="drop">
+      <p style="font-size:16px;margin:0 0 6px"><b>Drop song PDFs here</b></p>
+      <p class="hint" style="margin:0 0 14px">or</p>
+      <button class="btn ghost" id="pick">Choose files</button>
+      <input type="file" id="file" accept="application/pdf" multiple hidden>
+    </div>
+
+    <div class="panel" id="song-panel" style="display:none">
+      <div class="row" style="justify-content:space-between;margin-bottom:6px">
+        <h3 style="margin:0">Songs <span class="mono" id="song-n" style="color:var(--faint)"></span></h3>
+        <button class="btn ghost sm" id="sort-az">Sort A→Z</button>
+      </div>
+      <table class="songs"><thead><tr>
+        <th style="width:42px">#</th><th>Song</th><th style="width:90px">Pages→Parts</th>
+        <th style="width:170px">Frame</th><th style="width:120px">Tagged</th><th style="width:40px"></th>
+      </tr></thead><tbody id="song-rows"></tbody></table>
+    </div>
+    <div class="row"><button class="btn" id="to-tag" disabled>Next: tag pages →</button></div>
+  </section>
+
+  <!-- ============ TAG ============ -->
+  <section class="view" id="v-tag">
+    <h2 class="sec">Tag each part to a player</h2>
+    <p class="lede" id="tag-lede">Dirty pages with two stacked parts are split automatically — fix any with the <b>1 / 2 parts</b> toggle. Each part is auto-cropped and straightened into its <b>frame</b> (Lyre or Full). Hit <kbd>/</kbd> to search (e.g. <span class="mono">as2</span> → Alto Sax 2), <kbd>Enter</kbd> to assign and advance. Tick a checkbox to add a part to a <b>second</b> book. <kbd>C</kbd> = same as previous, <kbd>X</kbd> = ignore, <kbd>S</kbd> = re-straighten, <kbd>←</kbd>/<kbd>→</kbd> to move.</p>
+    <div id="ocr-banner"></div>
+
+    <div class="tag-wrap">
+      <div>
+        <div class="desk-page">
+          <div class="pagebar">
+            <div class="where" id="where">—</div>
+            <div class="row" style="gap:6px">
+              <button class="navbtn" id="prev">← prev</button>
+              <button class="navbtn" id="next">next →</button>
+            </div>
+          </div>
+          <div id="page-holder"><div class="empty">No song loaded.</div></div>
+        </div>
+        <div class="strip" id="strip"></div>
+
+        <div class="editbar" id="editbar">
+          <div class="ed-row ed-frame">
+            <span class="ed-lbl">Frame</span>
+            <div class="seg" id="frame-seg"><button id="frame-lyre">Lyre</button><button id="frame-full">Full page</button></div>
+            <span class="ed-lbl" style="width:auto;margin-left:auto">This page</span>
+            <div class="seg" id="split-seg"><button id="split-1">1 part</button><button id="split-2">2 parts</button></div>
+          </div>
+          <div class="editbar-head">
+            <span>Part edits</span>
+            <div class="row" style="gap:6px">
+              <button class="navbtn" id="ed-grid" title="Toggle alignment grid">grid</button>
+              <button class="navbtn" id="ed-reset" title="Reset this part's edits">reset</button>
+            </div>
+          </div>
+          <div class="ed-row">
+            <span class="ed-lbl">Rotate</span>
+            <button class="navbtn ed-step" data-ed="rot" data-d="-90">⟲ 90°</button>
+            <input type="range" id="ed-rot" min="-180" max="180" step="0.5" value="0">
+            <button class="navbtn ed-step" data-ed="rot" data-d="90">⟳ 90°</button>
+            <span class="ed-val" id="ed-rot-v">0°</span>
+          </div>
+          <div class="ed-row">
+            <span class="ed-lbl">Scale</span>
+            <button class="navbtn ed-step" data-ed="scale" data-d="-0.05">−</button>
+            <input type="range" id="ed-scale" min="0.3" max="2.5" step="0.01" value="1">
+            <button class="navbtn ed-step" data-ed="scale" data-d="0.05">+</button>
+            <span class="ed-val" id="ed-scale-v">100%</span>
+          </div>
+          <div class="ed-row">
+            <span class="ed-lbl">Skew</span>
+            <button class="navbtn ed-step" data-ed="skew" data-d="-0.5">−</button>
+            <input type="range" id="ed-skew" min="-20" max="20" step="0.1" value="0">
+            <button class="navbtn ed-step" data-ed="skew" data-d="0.5">+</button>
+            <span class="ed-val" id="ed-skew-v">0°</span>
+          </div>
+          <p class="hint" style="margin:6px 0 0">Edits apply only to this page and carry through to the built book. Use ⟲/⟳ for sideways scans; the slider fine-tunes tilt. Nudge position by dragging in the Build preview.</p>
+        </div>
+      </div>
+
+      <div class="rail" id="rail">
+        <div class="guess none" id="guess">No guess — type to search</div>
+        <input type="text" class="srch" id="srch" placeholder="Search instruments…" autocomplete="off" spellcheck="false">
+        <div class="ilist" id="ilist"></div>
+        <div class="keys">
+          <div class="keyrow">
+            <button class="btn sm" id="b-cont">Same as previous <kbd>C</kbd></button>
+            <button class="btn ghost sm" id="b-skip">Ignore page <kbd>X</kbd></button>
+          </div>
+          <div class="keyrow">
+            <button class="btn ghost sm" id="b-untag">Next untagged <kbd>U</kbd></button>
+            <button class="btn ghost sm" id="b-straighten">Auto-straighten <kbd>S</kbd></button>
+          </div>
+          <div class="keyrow" id="ocr-row">
+            <button class="btn ghost sm" id="b-ocr">Re-run OCR <kbd>O</kbd></button>
+            <button class="btn ghost sm" id="b-ocr-song">OCR whole song</button>
+          </div>
+        </div>
+
+        <p class="hint" id="multi-hint" style="margin:12px 0 0">Tip: tick the box next to a second instrument to put this page in two books — e.g. a lone alto sax part into both Alto Sax 1 and 2.</p>
+
+        <div class="legend">
+          <span><i class="dot" style="background:var(--ok)"></i>tagged</span>
+          <span><i class="dot" style="background:var(--cont)"></i>continuation</span>
+          <span><i class="dot" style="background:var(--skip)"></i>ignored</span>
+          <span><i class="dot" style="background:var(--line)"></i>untagged</span>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:16px"><button class="btn" data-go="build">Next: build books →</button></div>
+  </section>
+
+  <!-- ============ BUILD ============ -->
+  <section class="view" id="v-build">
+    <h2 class="sec">Build the part books</h2>
+    <p class="lede">One Letter-size PDF per player: full-page parts first, then 2-up parts paired two to a page — all trimmed, scaled, and punch-margined. Generated on your machine.</p>
+    <div id="build-warn"></div>
+
+    <div class="panel">
+      <h3>What each book will contain</h3>
+      <p class="hint">Click any book to preview its laid-out pages — drag parts to reposition, and check the punch holes for overlap before building.</p>
+      <div id="book-preview"></div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <h3 style="margin:0">Generate</h3>
+        <span class="hint" id="build-est"></span>
+      </div>
+      <div class="progress"><i id="bar"></i></div>
+      <div class="stat" id="stat">Ready.</div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="go-build">Build all books</button>
+        <button class="btn ghost" id="dl-zip" disabled>Download all (.zip)</button>
+      </div>
+      <div id="downloads" style="margin-top:14px"></div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ BUILD PREVIEW (book layout w/ punch holes + drag) ============ -->
+<div class="modal" id="pv-modal" hidden>
+  <div class="modal-card">
+    <div class="modal-bar">
+      <div class="row" style="gap:10px">
+        <button class="navbtn ico" id="pv-prev" title="Previous instrument (←)">‹</button>
+        <button class="navbtn ico" id="pv-next" title="Next instrument (→)">›</button>
+        <div class="modal-title"><b id="pv-name">Book</b> <span id="pv-sub"></span></div>
+      </div>
+      <div class="row" style="gap:10px">
+        <span class="hint" id="pv-hint">Drag to move · scroll or corner handle to scale · holes show the punch</span>
+        <button class="btn ghost sm" id="pv-reset">Reset positions</button>
+        <button class="navbtn" id="pv-close">✕ close</button>
+      </div>
+    </div>
+    <div class="modal-body" id="pv-body"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   March Prep v1 — local part-book builder
+   Libraries (cdnjs): pdf.js (render+bbox), pdf-lib (build),
+   tesseract.js (optional OCR), jszip (optional zip).
+   ============================================================ */
+
+const pdfjsLib = window.pdfjsLib;
+const PDFLib = window.PDFLib;
+const HAS_PDFJS = !!pdfjsLib, HAS_PDFLIB = !!PDFLib;
+if (HAS_PDFJS) pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const IN = 72, LETTER = { w: 612, h: 792 };
+let OCR_OK = (typeof window.Tesseract !== "undefined") && !window.__noOCR;
+const HAS_ZIP = (typeof window.JSZip !== "undefined") && !window.__noZip;
+
+const DEFAULT_VOCAB =
+`# Standard modern marching band instrumentation.
+# Format: Canonical name | alias, alias, alias   (# lines are ignored)
+Piccolo | picc, pic, piccolos
+Flute | fl, flt, c flute, flutes, flute 1, flute 2
+Clarinet 1 | cl 1, 1st clarinet, clarinet i, bb clarinet 1, 1st bb clarinet, clarinet
+Clarinet 2 | cl 2, 2nd clarinet, clarinet ii, bb clarinet 2, 2nd bb clarinet
+Clarinet 3 | cl 3, 3rd clarinet, clarinet iii, bb clarinet 3
+Bass Clarinet | bcl, b cl, bass cl, bass clar, bass clarinet
+Alto Sax 1 | as 1, alto sax i, 1st alto sax, eb alto sax 1, alto saxophone 1, alto sax, eb alto sax, alto saxophone
+Alto Sax 2 | as 2, alto sax ii, 2nd alto sax, eb alto sax 2, alto saxophone 2
+Tenor Sax | ts, tsx, tenor saxophone, bb tenor sax, tenor sax
+Bari Sax | bs, baritone sax, bari saxophone, eb baritone sax, bari sax, baritone saxophone
+Trumpet 1 | tpt 1, cornet 1, 1st trumpet, trumpet i, bb trumpet 1, trumpet, cornet
+Trumpet 2 | tpt 2, cornet 2, 2nd trumpet, trumpet ii, bb trumpet 2
+Trumpet 3 | tpt 3, cornet 3, 3rd trumpet, trumpet iii
+Horn | hn, f horn, french horn, horn in f, mellophone, mello, eb horn, alto horn, e flat horn, horn 1, horn 2, 1st horn, 2nd horn, eb horn 1, eb horn 2, 1st eb horn, 2nd eb horn
+Euphonium | euph, baritone bc, baritone tc, bar, baritone, bari bc
+Tuba | tba, sousaphone, bbb tuba, basses, bass, tubas
+Snare Drum | snare, sd, snares, snare drum
+Bass Drum | bass dr, bd, bass drum, bass drums
+Cymbals | cym, crash cymbals, crash, cymbal
+Tenors | tenor drums, quads, quad, toms, tenor drum, multi toms, tenor drumline
+# Occasional / legacy parts — turn up in older charts; tag as needed.
+Oboe | ob, oboes
+Bassoon | bsn, bassoons
+Trombone 1 | tbn 1, 1st trombone, trombone i, pos 1, trombone
+Trombone 2 | tbn 2, 2nd trombone, trombone ii, pos 2
+Bass Trombone | b tbn, bass tbn, bass trom
+Mallets | bells, glockenspiel, xylophone, mallet percussion, keyboard, pit, marimba, vibes
+Percussion | perc, aux percussion, drums, auxiliary`;
+
+/* ---------- state ---------- */
+const state = {
+  songs: [],            // {id,name,bytes,srcCount,parts[],_pdfjs}
+  vocab: [],            // {name, aliases:[norm...]}
+  cur: { s: 0, i: 0 },  // current song / part index in tagger
+  hi: 0,                // highlighted index in instrument list
+  previewCache: new Map(),  // band-cropped tag previews
+  fullCache: new Map(),     // full source-page renders (preview modal)
+  clipCache: new Map(),
+};
+let nextId = 1;
+
+/* ---------- small helpers ---------- */
+const $ = s => document.querySelector(s);
+const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
+const norm = s => s.toLowerCase().replace(/[._\-#:()]/g, " ").replace(/\s+/g, " ").trim();
+const yield_ = () => new Promise(r => setTimeout(r, 0));
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+/* per-page edit transform: rotation°, scale×, horizontal skew°, and a nudge (dx,dy) in PDF points */
+const defT = () => ({ rot: 0, scale: 1, skew: 0, dx: 0, dy: 0 });
+const isDefaultT = t => !t || (t.rot === 0 && t.scale === 1 && t.skew === 0 && t.dx === 0 && t.dy === 0);
+/* a logical part = a vertical band of a source PDF page, framed as lyre (2-up) or full page */
+const defaultPart = (src, band, frame) => ({
+  src, band: band || [0, 1], frame: frame || "full",
+  instrument: null, extra: [], continuation: false, ignore: false, guess: null,
+  t: defT(), straightened: false,
+});
+
+/* ---------- vocab ---------- */
+function parseVocab(text) {
+  const out = [];
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (!t || t.startsWith("#")) continue;
+    const [name, rest] = t.split("|");
+    const canonical = name.trim();
+    if (!canonical) continue;
+    const aliases = [norm(canonical)];
+    if (rest) for (const a of rest.split(",")) { const n = norm(a); if (n) aliases.push(n); }
+    out.push({ name: canonical, aliases: [...new Set(aliases)] });
+  }
+  return out;
+}
+function refreshVocab() {
+  state.vocab = parseVocab($("#vocab").value);
+  $("#vocab-count").textContent = state.vocab.length + " instruments defined";
+}
+
+/* fuzzy guess from a blob of OCR text */
+function guessInstrument(text) {
+  if (!text) return null;
+  const t = norm(text);
+  let best = null, bestScore = 0;
+  for (const inst of state.vocab) {
+    for (const a of inst.aliases) {
+      if (!a) continue;
+      let score = 0;
+      if (t.includes(a)) score = a.length + 2;            // direct substring of a known label
+      else {
+        // token overlap fallback
+        const at = a.split(" "), hit = at.filter(w => w.length > 1 && t.includes(w)).length;
+        if (hit) score = hit * 1.0 + (at.length === hit ? 1 : 0);
+      }
+      if (score > bestScore) { bestScore = score; best = inst.name; }
+    }
+  }
+  return bestScore >= 2 ? best : null;
+}
+
+/* ---------- routing ---------- */
+function go(view) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("on"));
+  $("#v-" + view).classList.add("on");
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.dataset.go === view));
+  if (view === "songs") renderSongs();
+  if (view === "tag") enterTag();
+  if (view === "build") enterBuild();
+  updateMeter();
+}
+document.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => go(b.dataset.go)));
+
+function updateMeter() {
+  const songs = state.songs.length;
+  let parts = 0, tagged = 0;
+  for (const s of state.songs) {
+    parts += s.parts.length;
+    tagged += s.parts.filter(a => a.instrument || a.continuation || a.ignore).length;
+  }
+  const tabTag = document.querySelector('[data-go="tag"]');
+  const tabBuild = document.querySelector('[data-go="build"]');
+  if (tabTag) tabTag.disabled = songs === 0;
+  if (tabBuild) tabBuild.disabled = tagged === 0;
+  $("#to-tag").disabled = songs === 0;
+  const m = $("#meter");
+  m.innerHTML = songs
+    ? `${songs} songs · <b>${tagged}</b>/${parts} parts tagged`
+    : "no songs yet";
+  const incomplete = songs > 0 && tagged < parts;
+  m.classList.toggle("clickable", incomplete);
+  m.title = incomplete ? "Jump to the first untagged part" : "";
+  m.onclick = incomplete ? () => {
+    for (let si = 0; si < state.songs.length; si++)
+      for (let ii = 0; ii < state.songs[si].parts.length; ii++) {
+        const a = state.songs[si].parts[ii];
+        if (!a.instrument && !a.continuation && !a.ignore) { state.cur = { s: si, i: ii }; go("tag"); return; }
+      }
+  } : null;
+}
+
+/* ============================================================
+   SETUP
+   ============================================================ */
+function initSetup() {
+  $("#vocab").value = DEFAULT_VOCAB;
+  refreshVocab();
+  $("#vocab").addEventListener("input", refreshVocab);
+  $("#vocab-reset").addEventListener("click", () => { $("#vocab").value = DEFAULT_VOCAB; refreshVocab(); });
+
+  const b = $("#lib-banner");
+  if (!HAS_PDFJS || !HAS_PDFLIB) {
+    b.innerHTML = `<div class="banner bad">Couldn't load the PDF engine (pdf.js / pdf-lib). If you opened this file offline or behind a strict network, those CDN scripts were blocked — reconnect and reload, or host the file where cdnjs is reachable.</div>`;
+  } else if (!OCR_OK) {
+    b.innerHTML = `<div class="banner warn">OCR isn't available in this environment, so there won't be auto-guesses — manual tagging still works (it's fast: type a few letters, Enter, repeat). Everything else is unaffected.</div>`;
+  }
+}
+
+/* ============================================================
+   SONGS
+   ============================================================ */
+function setupDrop() {
+  const dz = $("#drop"), fi = $("#file");
+  $("#pick").addEventListener("click", () => fi.click());
+  fi.addEventListener("change", () => { addFiles(fi.files); fi.value = ""; });
+  ["dragenter", "dragover"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add("hot"); }));
+  ["dragleave", "drop"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove("hot"); }));
+  dz.addEventListener("drop", e => { if (e.dataTransfer?.files) addFiles(e.dataTransfer.files); });
+  $("#sort-az").addEventListener("click", () => {
+    state.songs.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    renderSongs();
+  });
+  $("#to-tag").addEventListener("click", () => go("tag"));
+}
+
+async function addFiles(fileList) {
+  if (!HAS_PDFJS) return;
+  for (const f of fileList) {
+    if (f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")) continue;
+    try {
+      const buf = new Uint8Array(await f.arrayBuffer());
+      const doc = await pdfjsLib.getDocument({ data: buf.slice() }).promise;
+      const song = {
+        id: nextId++,
+        name: f.name.replace(/\.pdf$/i, ""),
+        bytes: buf,
+        srcCount: doc.numPages,
+        parts: [],
+        _pdfjs: doc,
+      };
+      state.songs.push(song);
+      renderSongs();
+      await buildParts(song);     // split stacked pages into parts (async, shows progress)
+    } catch (err) {
+      alert(`Couldn't read "${f.name}". It may be encrypted or not a valid PDF.`);
+    }
+  }
+  renderSongs(); updateMeter();
+}
+
+/* build a song's logical parts, auto-splitting pages that hold two stacked parts */
+async function buildParts(song) {
+  song.scanning = true; song.parts = [];
+  for (let src = 0; src < song.srcCount; src++) {
+    const gap = await detectStacks(song, src);
+    if (gap) { song.parts.push(defaultPart(src, [0, gap], "lyre")); song.parts.push(defaultPart(src, [gap, 1], "lyre")); }
+    else song.parts.push(defaultPart(src, [0, 1], "full"));
+    song.scanProgress = (src + 1) + "/" + song.srcCount;
+    renderSongs();
+    await yield_();
+  }
+  song.scanning = false; song.scanProgress = null;
+  renderSongs(); updateMeter();
+}
+
+/* detect a horizontal whitespace gap that separates two stacked parts; returns the gap centre
+   as a fraction of page height, or null if the page is a single part */
+async function detectStacks(song, src) {
+  try {
+    const page = await song._pdfjs.getPage(src + 1);
+    const base = page.getViewport({ scale: 1 });
+    const scale = Math.min(1, 460 / Math.max(base.width, base.height));
+    const vp = page.getViewport({ scale });
+    const W = Math.ceil(vp.width), H = Math.ceil(vp.height);
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    if (H < W * 1.1) return null;        // only portrait sheets stack two parts; landscape = single
+    const { data } = ctx.getImageData(0, 0, W, H);
+    const hist = new Uint32Array(256);
+    for (let i = 0; i < data.length; i += 4) hist[(data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8]++;
+    let bg = 255, bgN = 0; for (let v = 120; v < 256; v++) if (hist[v] > bgN) { bgN = hist[v]; bg = v; }
+    const TH = Math.max(150, Math.min(238, bg - 38));
+    const rowInk = new Uint32Array(H); let total = 0;
+    for (let y = 0; y < H; y++) { let r = 0; for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; if (((data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8) < TH) r++; } rowInk[y] = r; total += r; }
+    if (total < W * 0.5) return null;                                  // near-blank page
+    // smoothed row-ink profile; two stacked parts show a deep valley near the middle
+    const win = Math.max(2, Math.round(H * 0.012));
+    const sm = new Float64Array(H);
+    for (let y = 0; y < H; y++) { let s = 0, c = 0; for (let k = -win; k <= win; k++) { const yy = y + k; if (yy >= 0 && yy < H) { s += rowInk[yy]; c++; } } sm[y] = s / c; }
+    let peak = 0; for (let y = 0; y < H; y++) if (sm[y] > peak) peak = sm[y];
+    if (peak <= 0) return null;
+    const lo = Math.floor(0.33 * H), hi = Math.ceil(0.67 * H);
+    let m = -1, mv = Infinity;
+    for (let y = lo; y < hi; y++) if (sm[y] < mv) { mv = sm[y]; m = y; }
+    if (m < 0 || mv > 0.18 * peak) return null;                        // no deep central valley → single part
+    const lowTh = 0.35 * peak; let a = m, b = m;
+    while (a > 0 && sm[a] < lowTh) a--;
+    while (b < H - 1 && sm[b] < lowTh) b++;
+    if ((b - a) / H < 0.03) return null;                              // too narrow → an internal system gap
+    let above = 0, below = 0;
+    for (let y = 0; y < m; y++) above += rowInk[y];
+    for (let y = m; y < H; y++) below += rowInk[y];
+    if (above < total * 0.18 || below < total * 0.18) return null;     // one side basically empty
+    return Math.round(m / H * 1000) / 1000;
+  } catch (e) { return null; }
+}
+
+function songTagState(s) {
+  const total = s.parts.length;
+  const done = s.parts.filter(a => a.instrument || a.continuation || a.ignore).length;
+  if (s.scanning) return { txt: "scanning " + (s.scanProgress || ""), cls: "var(--cont)" };
+  if (done === 0) return { txt: "untagged", cls: "var(--faint)" };
+  if (done === total) return { txt: "complete", cls: "var(--ok)" };
+  return { txt: `${done}/${total}`, cls: "var(--warn)" };
+}
+
+function renderSongs() {
+  const panel = $("#song-panel"), rows = $("#song-rows");
+  panel.style.display = state.songs.length ? "block" : "none";
+  $("#song-n").textContent = state.songs.length ? `(${state.songs.length})` : "";
+  rows.innerHTML = "";
+  state.songs.forEach((s, i) => {
+    const tr = el("tr");
+    const st = songTagState(s);
+    const pagesTxt = s.parts.length !== s.srcCount ? `${s.srcCount} → ${s.parts.length}` : `${s.srcCount}`;
+    const tagCell = st.txt === "complete" ? "complete"
+      : (s.scanning ? st.txt : `<span class="untag-link">${st.txt} →</span>`);
+    tr.innerHTML = `
+      <td class="mono" style="color:var(--faint)">${i + 1}</td>
+      <td class="nm">${escapeHtml(s.name)}</td>
+      <td class="mono">${pagesTxt}</td>
+      <td></td>
+      <td class="tag-state" style="color:${st.cls}">${tagCell}</td>
+      <td></td>`;
+    if (st.txt !== "complete" && !s.scanning) { const link = tr.children[4].querySelector(".untag-link"); if (link) link.onclick = () => jumpToSongTag(s.name); }
+    // bulk frame toggle: sets every part of this song to Lyre (2-up) or Full page
+    const seg = el("div", "seg");
+    const allLyre = s.parts.length && s.parts.every(p => p.frame === "lyre");
+    const allFull = s.parts.length && s.parts.every(p => p.frame === "full");
+    const bl = el("button", allLyre ? "on" : "", "2-up"); const bf = el("button", allFull ? "on" : "", "Full page");
+    bl.onclick = () => { s.parts.forEach(p => p.frame = "lyre"); renderSongs(); };
+    bf.onclick = () => { s.parts.forEach(p => p.frame = "full"); renderSongs(); };
+    seg.append(bl, bf); tr.children[3].appendChild(seg);
+    // remove
+    const xb = el("button", "x", "×"); xb.title = "Remove song";
+    xb.onclick = () => { state.songs.splice(i, 1); renderSongs(); updateMeter(); };
+    tr.children[5].appendChild(xb);
+    rows.appendChild(tr);
+  });
+  updateMeter();
+}
+function escapeHtml(s) { return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+/* ============================================================
+   TAG — the workbench
+   ============================================================ */
+function curSong() { return state.songs[state.cur.s]; }
+function curPart() { return curSong()?.parts[state.cur.i]; }
+
+function enterTag() {
+  const banner = $("#ocr-banner");
+  banner.innerHTML = OCR_OK ? "" : `<div class="banner warn">OCR unavailable — no auto-guesses. Manual tagging is quick: type, <kbd>Enter</kbd>, next.</div>`;
+  $("#ocr-row").style.display = OCR_OK ? "flex" : "none";
+  if (!state.songs.length) { $("#page-holder").innerHTML = `<div class="empty">Add songs first.</div>`; return; }
+  if (state.cur.s >= state.songs.length) state.cur = { s: 0, i: 0 };
+  if (state.cur.i >= (curSong().parts.length || 1)) state.cur.i = 0;
+  renderInstList(""); drawPage();
+}
+
+/* preview of a single part for the tagger: cropped to the music inside its band (the "cut-out") */
+async function getPreview(s, part) {
+  const key = s.id + ":" + part.src + ":" + part.band[0] + ":" + part.band[1];
+  if (state.previewCache.has(key)) return state.previewCache.get(key);
+  const page = await s._pdfjs.getPage(part.src + 1);
+  const base = page.getViewport({ scale: 1 });
+  const scale = Math.min(2, 820 / Math.max(base.width, base.height));
+  const vp = page.getViewport({ scale });
+  const full = document.createElement("canvas");
+  full.width = Math.ceil(vp.width); full.height = Math.ceil(vp.height);
+  const fctx = full.getContext("2d", { willReadFrequently: true }); fctx.fillStyle = "#fff"; fctx.fillRect(0, 0, full.width, full.height);
+  await page.render({ canvasContext: fctx, viewport: vp }).promise;
+  const W = full.width, H = full.height;
+  const y0 = Math.max(0, Math.floor(part.band[0] * H)), y1 = Math.min(H, Math.ceil(part.band[1] * H));
+  const { data } = fctx.getImageData(0, 0, W, H);
+  // adaptive ink box within the band (same logic as the builder's trim)
+  const hist = new Uint32Array(256);
+  for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; hist[(data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8]++; }
+  let bg = 255, bgN = 0; for (let v = 120; v < 256; v++) if (hist[v] > bgN) { bgN = hist[v]; bg = v; }
+  const TH = Math.max(150, Math.min(238, bg - 38));
+  let minX = W, minY = H, maxX = 0, maxY = 0, found = false;
+  for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4;
+    if (((data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8) < TH) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; found = true; }
+  }
+  let cx0 = 0, cy0 = y0, cw = W, ch = y1 - y0;
+  if (found) {
+    const pad = Math.round(W * 0.006);
+    cx0 = Math.max(0, minX - pad); cy0 = Math.max(y0, minY - pad);
+    cw = Math.min(W, maxX + pad) - cx0; ch = Math.min(y1, maxY + pad) - cy0;
+  }
+  cw = Math.max(1, cw); ch = Math.max(1, ch);
+  const out = document.createElement("canvas"); out.width = cw; out.height = ch;
+  const octx = out.getContext("2d"); octx.fillStyle = "#fff"; octx.fillRect(0, 0, cw, ch);
+  octx.drawImage(full, cx0, cy0, cw, ch, 0, 0, cw, ch);
+  const url = out.toDataURL("image/png");
+  state.previewCache.set(key, url);
+  return url;
+}
+
+async function drawPage() {
+  const s = curSong(), part = curPart();
+  if (!part) { $("#page-holder").innerHTML = `<div class="empty">${s && s.scanning ? "Scanning pages…" : "No part loaded."}</div>`; return; }
+  const i = state.cur.i;
+  const frameTxt = part.frame === "lyre" ? "Lyre" : "Full page";
+  $("#where").innerHTML = `<b>${escapeHtml(s.name)}</b> &nbsp;·&nbsp; part ${i + 1}/${s.parts.length} &nbsp;·&nbsp; from page ${part.src + 1}/${s.srcCount} <span style="color:var(--${part.frame === "lyre" ? "cont" : "faint"})">[${frameTxt}]</span>`;
+  $("#prev").disabled = (state.cur.s === 0 && i === 0);
+  $("#next").disabled = false;
+  syncFrameSplit(part, s);
+  const holder = $("#page-holder");
+  holder.innerHTML = `<div class="empty">Rendering…</div>`;
+  try {
+    const url = await getPreview(s, part);
+    const img = new Image(); img.src = url; img.alt = `${s.name} part ${i + 1}`; img.id = "page-img";
+    holder.innerHTML = ""; holder.appendChild(img); holder.appendChild(makeGridOverlay());
+    img.onload = applyEditStyle; applyEditStyle();
+  } catch (e) { holder.innerHTML = `<div class="empty">Couldn't render this part.</div>`; }
+  renderStrip();
+  reflectAssignment();
+  refreshEditbar();
+  if (!part.straightened) maybeStraighten(part);     // auto-straighten on first view
+  if (OCR_OK && !part.guess && !part.instrument && !part.continuation && !part.ignore) runOCR(false);
+}
+
+/* frame (Lyre/Full) + split (1/2 parts) controls */
+function syncFrameSplit(part, s) {
+  $("#frame-lyre").classList.toggle("on", part.frame === "lyre");
+  $("#frame-full").classList.toggle("on", part.frame === "full");
+  const cnt = s.parts.filter(p => p.src === part.src).length;
+  $("#split-1").classList.toggle("on", cnt === 1);
+  $("#split-2").classList.toggle("on", cnt === 2);
+}
+function setFrame(f) { const p = curPart(); if (!p) return; p.frame = f; drawPage(); }
+function splitToggle(target) {
+  const s = curSong(), part = curPart(); if (!part) return;
+  const src = part.src;
+  const here = s.parts.map((p, ix) => ({ p, ix })).filter(o => o.p.src === src);
+  if (target === here.length) return;
+  const keep = src => ({ instrument: src.instrument, extra: src.extra, continuation: src.continuation, ignore: src.ignore, guess: src.guess, t: src.t });
+  if (target === 2 && here.length === 1) {
+    const at = here[0].ix, orig = here[0].p;
+    const top = Object.assign(defaultPart(src, [0, 0.5], "lyre"), keep(orig));
+    const bot = defaultPart(src, [0.5, 1], "lyre");
+    s.parts.splice(at, 1, top, bot); state.cur.i = at;
+  } else if (target === 1 && here.length === 2) {
+    const at = here[0].ix;
+    const merged = Object.assign(defaultPart(src, [0, 1], here[0].p.frame), keep(here[0].p));
+    s.parts.splice(at, 2, merged); state.cur.i = at;
+  }
+  invalidateCaches();
+  renderInstList($("#srch").value); drawPage(); updateMeter();
+}
+function invalidateCaches() { state.previewCache.clear(); state.fullCache.clear(); state.clipCache.clear(); }
+
+function reflectAssignment() {
+  const a = curPart(); if (!a) return;
+  const g = $("#guess");
+  let label = a.instrument || a.guess;
+  if (a.continuation) { g.className = "guess"; g.innerHTML = `Marked <b>continuation</b> of previous part`; }
+  else if (a.ignore) { g.className = "guess"; g.innerHTML = `Marked <b>ignored</b>`; }
+  else if (label) {
+    g.className = "guess";
+    const extra = (a.extra && a.extra.length) ? ` <span style="font-size:11px;color:var(--color-ghost-blue)">+ ${a.extra.map(escapeHtml).join(", ")}</span>` : "";
+    g.innerHTML = `${a.instrument ? "Assigned" : "Guess"}: <b>${escapeHtml(label)}</b>${extra} <span style="font-size:11px;color:var(--color-lead)">${a.instrument ? "" : "Enter to accept"}</span>`;
+  } else { g.className = "guess none"; g.textContent = "No guess — type to search"; }
+}
+
+function renderStrip() {
+  const s = curSong();
+  const strip = $("#strip"); strip.innerHTML = "";
+  s.parts.forEach((a, i) => {
+    const c = el("div", "chip" + (i === state.cur.i ? " cur" : ""), String(i + 1));
+    if (a.instrument) c.dataset.s = "done";
+    else if (a.continuation) c.dataset.s = "cont";
+    else if (a.ignore) c.dataset.s = "skip";
+    if (a.extra && a.extra.length) c.classList.add("multi");
+    if (a.instrument) c.title = [a.instrument, ...(a.extra || [])].join(" + ");
+    c.onclick = () => { state.cur.i = i; drawPage(); };
+    strip.appendChild(c);
+  });
+}
+
+/* ---- per-part edits (rotate / scale / skew) ---- */
+function curT() { return curPart()?.t; }
+function makeGridOverlay() {
+  const ov = el("div", "grid-ov");
+  ov.innerHTML = `<i class="g v1"></i><i class="g v2"></i><i class="g h1"></i><i class="g h2"></i><i class="g cx"></i><i class="g cy"></i>`;
+  return ov;
+}
+function applyEditStyle() {
+  const img = $("#page-img"); if (!img) return;
+  const t = curT() || defT();
+  img.style.transformOrigin = "center center";
+  img.style.transform = `rotate(${-(t.rot || 0)}deg) skewX(${-(t.skew || 0)}deg) scale(${t.scale || 1})`;
+  // align the (untransformed) safe-zone grid to where the page sits
+  const ov = $("#page-holder > .grid-ov");
+  if (ov && img.offsetWidth) {
+    ov.style.left = img.offsetLeft + "px"; ov.style.top = img.offsetTop + "px";
+    ov.style.width = img.offsetWidth + "px"; ov.style.height = img.offsetHeight + "px";
+  }
+}
+function refreshEditbar() {
+  const t = curT() || defT();
+  $("#ed-rot").value = t.rot; $("#ed-rot-v").textContent = (Math.round(t.rot * 10) / 10) + "°";
+  $("#ed-scale").value = t.scale; $("#ed-scale-v").textContent = Math.round(t.scale * 100) + "%";
+  $("#ed-skew").value = t.skew; $("#ed-skew-v").textContent = (Math.round(t.skew * 10) / 10) + "°";
+  $("#editbar").classList.toggle("edited", !isDefaultT(t));
+}
+function setEdit(key, val) {
+  const part = curPart(), t = part && part.t; if (!t) return;
+  if (key === "rot") { t.rot = clamp(val, -180, 180); part.straightened = true; }   // manual rotation wins over auto
+  else if (key === "scale") t.scale = clamp(val, 0.3, 2.5);
+  else if (key === "skew") t.skew = clamp(val, -20, 20);
+  // surface the alignment grid while the user is adjusting
+  $("#page-holder").classList.add("show-grid"); $("#ed-grid").classList.add("on");
+  refreshEditbar(); applyEditStyle();
+}
+
+/* instrument rail */
+function filteredVocab(q) {
+  const n = norm((q || "").replace(/^\//, ""));   // tolerate a leading "/" trigger
+  if (!n) return state.vocab.map((v, i) => ({ v, i }));
+  const nc = n.replace(/\s+/g, "");               // compact form, e.g. "as2"
+  return state.vocab.map((v, i) => ({ v, i }))
+    .filter(({ v }) => {
+      const nameN = norm(v.name);
+      if (nameN.includes(n) || nameN.replace(/\s+/g, "").includes(nc)) return true;
+      return v.aliases.some(a => a.includes(n) || a.replace(/\s+/g, "").includes(nc));
+    });
+}
+function pageHasInst(a, name) { return !!a && (a.instrument === name || (a.extra && a.extra.includes(name))); }
+function renderInstList(q) {
+  const list = $("#ilist"); list.innerHTML = "";
+  const items = filteredVocab(q);
+  state.hi = Math.min(state.hi, Math.max(0, items.length - 1));
+  const a = curPart();
+  items.forEach(({ v }, idx) => {
+    const checked = pageHasInst(a, v.name), primary = a && a.instrument === v.name;
+    const it = el("div", "iitem" + (idx === state.hi ? " hi" : "") + (checked ? " sel" : ""));
+    const k = idx < 9 ? String(idx + 1) : "";
+    const ck = el("span", "ck" + (checked ? " on" : "") + (primary ? " primary" : ""));
+    ck.title = checked ? "In this book — click to remove" : "Add this page to this book too";
+    ck.onclick = e => { e.stopPropagation(); toggleInst(v.name); };
+    const kk = el("span", "k", k);
+    const nm = el("span", "nm", v.name);
+    it.append(ck, kk, nm);
+    it.onclick = () => assign(v.name);
+    list.appendChild(it);
+  });
+  if (!items.length) list.innerHTML = `<div class="iitem" style="cursor:default;color:var(--color-lead)">No match</div>`;
+}
+
+/* quick path: set primary instrument and move on */
+function assign(name) {
+  const a = curPart(); if (!a) return;
+  a.instrument = name; a.continuation = false; a.ignore = false;
+  advance();
+}
+/* checkbox path: toggle a book on/off for this part without advancing */
+function toggleInst(name) {
+  const a = curPart(); if (!a) return;
+  a.continuation = false; a.ignore = false;
+  if (!a.extra) a.extra = [];
+  if (a.instrument === name) {
+    a.instrument = a.extra.length ? a.extra.shift() : null;        // drop primary, promote next
+  } else if (a.extra.includes(name)) {
+    a.extra = a.extra.filter(x => x !== name);                     // drop an extra
+  } else if (!a.instrument) {
+    a.instrument = name;                                           // first pick becomes primary
+  } else {
+    a.extra.push(name);                                           // additional book
+  }
+  reflectAssignment(); renderInstList($("#srch").value); renderStrip(); updateMeter();
+}
+function markContinuation() {
+  const a = curPart(); if (!a) return;
+  a.continuation = true; a.instrument = null; a.ignore = false; advance();
+}
+function markIgnore() {
+  const a = curPart(); if (!a) return;
+  a.ignore = true; a.instrument = null; a.continuation = false; advance();
+}
+function advance() {
+  const s = curSong();
+  if (state.cur.i < s.parts.length - 1) state.cur.i++;
+  else if (state.cur.s < state.songs.length - 1) { state.cur.s++; state.cur.i = 0; }
+  else { /* end */ }
+  $("#srch").value = ""; $("#srch").blur(); state.hi = 0; renderInstList(""); drawPage(); updateMeter();
+}
+function navPrev() {
+  if (state.cur.i > 0) state.cur.i--;
+  else if (state.cur.s > 0) { state.cur.s--; state.cur.i = state.songs[state.cur.s].parts.length - 1; }
+  $("#srch").value = ""; state.hi = 0; renderInstList(""); drawPage();
+}
+function navNext() {
+  const s = curSong();
+  if (state.cur.i < s.parts.length - 1) state.cur.i++;
+  else if (state.cur.s < state.songs.length - 1) { state.cur.s++; state.cur.i = 0; }
+  $("#srch").value = ""; state.hi = 0; renderInstList(""); drawPage();
+}
+/* jump to the next part (across all songs) that has no instrument, continuation or ignore */
+function nextUntagged() {
+  const flat = [];
+  state.songs.forEach((s, si) => s.parts.forEach((a, ii) => flat.push([si, ii])));
+  if (!flat.length) return;
+  const cur = flat.findIndex(([si, ii]) => si === state.cur.s && ii === state.cur.i);
+  for (let off = 1; off <= flat.length; off++) {
+    const [si, ii] = flat[(cur + off) % flat.length];
+    const a = state.songs[si].parts[ii];
+    if (!a.instrument && !a.continuation && !a.ignore) {
+      state.cur = { s: si, i: ii };
+      $("#srch").value = ""; state.hi = 0; renderInstList(""); drawPage();
+      return;
+    }
+  }
+  $("#guess").className = "guess"; $("#guess").innerHTML = `<b>All parts tagged</b> — nothing left to do.`;
+}
+
+/* ---- auto-straighten (deskew) from staff/bar lines ---- */
+/* Find the small rotation that makes the dark rows (staff lines) line up horizontally. */
+async function detectSkew(song, part) {
+  const page = await song._pdfjs.getPage(part.src + 1);
+  const base = page.getViewport({ scale: 1 });
+  const scale = Math.min(1, 700 / Math.max(base.width, base.height));
+  const vp = page.getViewport({ scale });
+  const W = Math.ceil(vp.width), H = Math.ceil(vp.height);
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  const { data } = ctx.getImageData(0, 0, W, H);
+  const y0 = Math.max(0, Math.floor(part.band[0] * H)), y1 = Math.min(H, Math.ceil(part.band[1] * H));
+  // binary ink mask (adaptive) within the band
+  const hist = new Uint32Array(256);
+  for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; hist[(data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8]++; }
+  let bg = 255, bgN = 0; for (let v = 120; v < 256; v++) if (hist[v] > bgN) { bgN = hist[v]; bg = v; }
+  const TH = Math.max(150, Math.min(238, bg - 38));
+  const mask = new Uint8Array(W * H);
+  for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; if (((data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8) < TH) mask[y * W + x] = 1; }
+  const cx = W / 2;
+  const scoreAt = ang => {
+    const t = Math.tan(ang * Math.PI / 180);
+    const rows = new Float64Array(H + W);
+    for (let x = 0; x < W; x++) {
+      const sh = Math.round((x - cx) * t);
+      for (let y = y0; y < y1; y++) if (mask[y * W + x]) { const r = y + sh; if (r >= 0 && r < rows.length) rows[r]++; }
+    }
+    let s = 0; for (let i = 0; i < rows.length; i++) s += rows[i] * rows[i];   // peaky rows = aligned staff lines
+    return s;
+  };
+  let best = 0, bestS = -1;
+  for (let a = -6; a <= 6.0001; a += 0.5) { const s = scoreAt(a); if (s > bestS) { bestS = s; best = a; } }
+  for (let a = best - 0.5; a <= best + 0.5001; a += 0.1) { const s = scoreAt(a); if (s > bestS) { bestS = s; best = a; } }
+  return Math.round(best * 10) / 10;
+}
+/* straighten a specific part (used by the builder for parts never opened in Tag) */
+async function ensureStraight(song, part) {
+  if (part.straightened) return;
+  part.straightened = true;
+  try { part.t.rot = clamp(-(await detectSkew(song, part)), -180, 180); } catch (e) { /* ignore */ }
+}
+/* lazy auto-straighten when a part is first viewed (preserves any manual rotation) */
+async function maybeStraighten(part) {
+  if (!part || part.straightened) return;
+  part.straightened = true;
+  try {
+    const deg = await detectSkew(curSong(), part);
+    part.t.rot = clamp(-deg, -180, 180);
+    if (curPart() === part) { refreshEditbar(); applyEditStyle(); }
+  } catch (e) { /* ignore */ }
+}
+async function autoStraighten() {
+  const part = curPart(); if (!part) return;
+  const btn = $("#b-straighten"); btn.disabled = true; btn.textContent = "Reading…";
+  try { setEdit("rot", -(await detectSkew(curSong(), part))); } catch (e) { /* ignore */ }
+  btn.disabled = false; btn.innerHTML = `Auto-straighten <kbd>S</kbd>`;
+}
+
+/* OCR (optional) — reads the top strip of the part's band */
+async function ocrText(s, part) {
+  const page = await s._pdfjs.getPage(part.src + 1);
+  const vp = page.getViewport({ scale: 2 });
+  const full = document.createElement("canvas");
+  full.width = Math.ceil(vp.width); full.height = Math.ceil(vp.height);
+  await page.render({ canvasContext: full.getContext("2d"), viewport: vp }).promise;
+  const by0 = Math.floor(part.band[0] * full.height), by1 = Math.ceil(part.band[1] * full.height);
+  const stripH = Math.max(10, Math.ceil((by1 - by0) * 0.22));
+  const c = document.createElement("canvas"); c.width = full.width; c.height = stripH;
+  const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, stripH);
+  ctx.drawImage(full, 0, by0, full.width, stripH, 0, 0, full.width, stripH);
+  const res = await window.Tesseract.recognize(c, "eng");
+  return res?.data?.text || "";
+}
+async function runOCR(force) {
+  if (!OCR_OK) return;
+  const s = curSong(), part = curPart(); if (!part) return;
+  if (part.guess && !force) return;
+  const g = $("#guess"); const prev = g.innerHTML;
+  g.className = "guess"; g.innerHTML = `Reading label… <span class="mono" style="font-size:11px">OCR</span>`;
+  try {
+    const guess = guessInstrument(await ocrText(s, part));
+    part.guess = guess;
+    if (curPart() === part) reflectAssignment();
+  } catch (e) {
+    OCR_OK = false;
+    $("#ocr-row").style.display = "none";
+    g.innerHTML = prev;
+    $("#ocr-banner").innerHTML = `<div class="banner warn">OCR stopped working in this environment — switching to manual only. Type and press <kbd>Enter</kbd>.</div>`;
+  }
+}
+async function ocrSong() {
+  if (!OCR_OK) return;
+  const s = curSong();
+  $("#b-ocr-song").disabled = true; $("#b-ocr-song").textContent = "Reading…";
+  for (const part of s.parts) {
+    if (part.guess || part.instrument || part.continuation || part.ignore) continue;
+    try { part.guess = guessInstrument(await ocrText(s, part)); } catch { OCR_OK = false; break; }
+    await yield_();
+  }
+  $("#b-ocr-song").disabled = false; $("#b-ocr-song").textContent = "OCR whole song";
+  reflectAssignment(); renderStrip();
+}
+
+function setupTagControls() {
+  $("#prev").onclick = navPrev;
+  $("#next").onclick = navNext;
+  $("#b-cont").onclick = markContinuation;
+  $("#b-skip").onclick = markIgnore;
+  $("#b-ocr").onclick = () => runOCR(true);
+  $("#b-ocr-song").onclick = ocrSong;
+  $("#b-untag").onclick = nextUntagged;
+  $("#b-straighten").onclick = autoStraighten;
+
+  // frame + split controls
+  $("#frame-lyre").onclick = () => setFrame("lyre");
+  $("#frame-full").onclick = () => setFrame("full");
+  $("#split-1").onclick = () => splitToggle(1);
+  $("#split-2").onclick = () => splitToggle(2);
+
+  // page-edit controls
+  $("#ed-rot").addEventListener("input", e => setEdit("rot", parseFloat(e.target.value)));
+  $("#ed-scale").addEventListener("input", e => setEdit("scale", parseFloat(e.target.value)));
+  $("#ed-skew").addEventListener("input", e => setEdit("skew", parseFloat(e.target.value)));
+  document.querySelectorAll(".ed-step").forEach(b => b.addEventListener("click", () => {
+    const t = curT(); if (!t) return;
+    setEdit(b.dataset.ed, (t[b.dataset.ed] || 0) + parseFloat(b.dataset.d));
+  }));
+  $("#ed-reset").addEventListener("click", () => {
+    const a = curPart(); if (!a) return;
+    a.t = defT(); a.straightened = true; refreshEditbar(); applyEditStyle();
+  });
+  $("#ed-grid").addEventListener("click", () => {
+    $("#page-holder").classList.toggle("show-grid");
+    $("#ed-grid").classList.toggle("on");
+  });
+
+  const srch = $("#srch");
+  srch.addEventListener("input", () => { state.hi = 0; renderInstList(srch.value); });
+  srch.addEventListener("keydown", e => {
+    const items = filteredVocab(srch.value);
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const a = curPart();
+      if (!srch.value.trim()) { if (a && a.guess) assign(a.guess); else srch.blur(); return; }
+      if (items.length) assign((items[state.hi] || items[0]).v.name);
+    } else if (e.key === "ArrowDown") { e.preventDefault(); state.hi = Math.min(state.hi + 1, items.length - 1); renderInstList(srch.value); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); state.hi = Math.max(state.hi - 1, 0); renderInstList(srch.value); }
+    else if (e.key === "Escape") { srch.value = ""; renderInstList(""); srch.blur(); }
+  });
+  // single-key shortcuts (tag view, when not typing in the search box or another field)
+  document.addEventListener("keydown", e => {
+    if (!$("#v-tag").classList.contains("on")) return;
+    const ae = document.activeElement;
+    if (e.key === "/" && ae !== srch) { e.preventDefault(); srch.value = ""; state.hi = 0; renderInstList(""); srch.focus(); return; }
+    if (ae === srch) return;                                          // search has focus: let it type freely
+    if (ae && (ae.tagName === "SELECT" || ae.tagName === "INPUT")) return;   // sliders etc.
+    if (e.key === "Enter") { e.preventDefault(); const a = curPart(); if (a && a.guess && !a.instrument) assign(a.guess); else navNext(); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); navNext(); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); navPrev(); }
+    else if (e.key === "c" || e.key === "C") { e.preventDefault(); markContinuation(); }
+    else if (e.key === "x" || e.key === "X") { e.preventDefault(); markIgnore(); }
+    else if ((e.key === "o" || e.key === "O") && OCR_OK) { e.preventDefault(); runOCR(true); }
+    else if (e.key === "u" || e.key === "U") { e.preventDefault(); nextUntagged(); }
+    else if (e.key === "s" || e.key === "S") { e.preventDefault(); autoStraighten(); }
+    else if (/^[1-9]$/.test(e.key)) { const items = filteredVocab(""); const idx = +e.key - 1; if (items[idx]) { e.preventDefault(); assign(items[idx].v.name); } }
+  });
+}
+
+/* ============================================================
+   BUILD
+   ============================================================ */
+// resolve effective instrument per page (continuation carries previous)
+function resolveBooks() {
+  const ordered = [...state.songs].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const books = new Map();  // name -> {full:[{song,part}], lyre:[{song,part}]}
+  let untagged = 0;
+  const add = (inst, song, part) => {
+    if (!books.has(inst)) books.set(inst, { full: [], lyre: [] });
+    (part.frame === "lyre" ? books.get(inst).lyre : books.get(inst).full).push({ song, part });
+  };
+  for (const song of ordered) {
+    let carry = null, carryExtra = [];
+    for (const part of song.parts) {
+      if (part.ignore) continue;
+      let inst, extras;
+      if (part.continuation) { inst = carry; extras = carryExtra; }
+      else { inst = part.instrument; if (inst) { carry = inst; carryExtra = part.extra || []; } extras = part.extra || []; }
+      if (!inst) { if (!part.continuation && !part.instrument) untagged++; continue; }
+      add(inst, song, part);
+      // a part checked for more than one book (e.g. one sax part → both alto books), carried across continuation parts
+      for (const extra of extras) if (extra && extra !== inst) add(extra, song, part);
+    }
+  }
+  return { books, untagged };
+}
+
+function enterBuild() {
+  const { books, untagged } = resolveBooks();
+  const warn = $("#build-warn");
+  let msgs = [];
+  if (untagged) msgs.push(`<div class="banner warn">${untagged} part${untagged > 1 ? "s are" : " is"} still untagged and won't appear in any book. Go back to <b>Tag</b> if that's not intentional.</div>`);
+  warn.innerHTML = msgs.join("");
+
+  const prev = $("#book-preview");
+  if (!books.size) { prev.innerHTML = `<div class="empty" style="color:var(--faint)">Nothing tagged yet.</div>`; $("#go-build").disabled = true; return; }
+  $("#go-build").disabled = false;
+  const names = [...books.keys()].sort((a, b) => state.vocab.findIndex(v => v.name === a) - state.vocab.findIndex(v => v.name === b));
+  const songNames = [...state.songs].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(s => s.name);
+  let totalPages = 0;
+  prev.innerHTML = "";
+  for (const name of names) {
+    const b = books.get(name);
+    const lyrePages = Math.ceil(b.lyre.length / 2);
+    const out = b.full.length + lyrePages;
+    totalPages += b.full.length + b.lyre.length;
+    const wrap = el("div", "bk-row");
+    wrap.tabIndex = 0;
+    const head = el("div", "bk");
+    head.innerHTML = `<span class="nm">${escapeHtml(name)} <span class="bk-go">preview ›</span></span>
+      <span class="pill full">${b.full.length} full</span>
+      <span class="pill lyre">${b.lyre.length} 2-up → ${lyrePages}p</span>
+      <span class="ct">${out} page${out !== 1 ? "s" : ""}</span>`;
+    wrap.appendChild(head);
+    // which songs have no page in this book → likely a part you still need to tag
+    const present = new Set(); b.full.concat(b.lyre).forEach(r => present.add(r.song.name));
+    const missing = songNames.filter(n => !present.has(n));
+    if (missing.length) {
+      const m = el("div", "bk-miss");
+      m.appendChild(el("span", "miss-lbl", "no part:"));
+      missing.forEach(n => {
+        const chip = el("button", "miss-chip", n);
+        chip.title = `Jump to "${n}" in Tag`;
+        chip.onclick = e => { e.stopPropagation(); jumpToSongTag(n); };
+        m.appendChild(chip);
+      });
+      wrap.appendChild(m);
+    }
+    wrap.onclick = () => openPreview(name);
+    wrap.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPreview(name); } };
+    prev.appendChild(wrap);
+  }
+  $("#build-est").textContent = `${names.length} books · ~${totalPages} parts to place`;
+}
+
+/* jump straight to a song's first untagged part in the tagger */
+function jumpToSongTag(name) {
+  const si = state.songs.findIndex(s => s.name === name);
+  if (si < 0) return;
+  const s = state.songs[si];
+  let i = s.parts.findIndex(a => !a.instrument && !a.continuation && !a.ignore);
+  if (i < 0) i = 0;
+  state.cur = { s: si, i };
+  closePreview();
+  go("tag");
+}
+
+/* ============================================================
+   BUILD PREVIEW — laid-out pages with punch holes + drag-to-arrange
+   ============================================================ */
+let pvBook = null, pvNames = [], pvIdx = 0;
+
+function pvGo(d) { if (pvNames.length) openPreview(pvNames[(pvIdx + d + pvNames.length) % pvNames.length]); }
+
+async function pagePix(song, part) {
+  // full source-page render (preview-modal background math works in source-page coords)
+  const key = song.id + ":full:" + part.src;
+  const page = await song._pdfjs.getPage(part.src + 1);
+  const vp1 = page.getViewport({ scale: 1 });
+  const ptW = vp1.width, ptH = vp1.height;
+  const scale = Math.min(2, 820 / Math.max(ptW, ptH));
+  let url = state.fullCache.get(key);
+  if (!url) {
+    const vp = page.getViewport({ scale });
+    const c = document.createElement("canvas");
+    c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+    const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    url = c.toDataURL("image/png"); state.fullCache.set(key, url);
+  }
+  return { url, ptW, ptH, scale };
+}
+
+function closePreview() { $("#pv-modal").hidden = true; $("#pv-body").innerHTML = ""; pvBook = null; }
+
+async function openPreview(name) {
+  const S = settings();
+  const { books } = resolveBooks();
+  const b = books.get(name);
+  if (!b) return;
+  pvBook = name;
+  pvNames = [...books.keys()].sort((a, b) => state.vocab.findIndex(v => v.name === a) - state.vocab.findIndex(v => v.name === b));
+  pvIdx = Math.max(0, pvNames.indexOf(name));
+  for (const r of b.full.concat(b.lyre)) await ensureStraight(r.song, r.part);   // WYSIWYG: match the builder
+  $("#pv-name").textContent = name;
+  const lyrePages = Math.ceil(b.lyre.length / 2);
+  const totalOut = b.full.length + lyrePages;
+  $("#pv-sub").textContent = `${pvIdx + 1}/${pvNames.length} · ${totalOut} page${totalOut !== 1 ? "s" : ""}${S.duplex ? " · double-sided" : ""}`;
+  const body = $("#pv-body");
+  body.innerHTML = `<div class="pv-loading">Rendering preview…</div>`;
+  $("#pv-modal").hidden = false;
+
+  // rebuild the exact output-page sequence the builder uses
+  const pages = [];
+  let outIdx = 0;
+  for (const r of b.full) { pages.push({ idx: outIdx++, items: [{ r, slot: "full" }] }); }
+  for (let k = 0; k < b.lyre.length; k += 2) {
+    const items = [{ r: b.lyre[k], slot: "lyreTop" }];
+    if (b.lyre[k + 1]) items.push({ r: b.lyre[k + 1], slot: "lyreBottom" });
+    pages.push({ idx: outIdx++, items });
+  }
+
+  const PAGE_W = 320, pxPerPt = PAGE_W / LETTER.w, PAGE_H = LETTER.h * pxPerPt;
+  body.innerHTML = "";
+  for (const pg of pages) {
+    const side = gutterSide(S, pg.idx);
+    const sheet = el("div", "pv-page");
+    sheet.style.width = PAGE_W + "px"; sheet.style.height = PAGE_H + "px";
+    const tag = S.duplex ? (pg.idx % 2 === 0 ? " · front" : " · back") : "";
+    const cap = el("div", "pv-cap", `Page ${pg.idx + 1}${tag} · holes: ${side}`);
+
+    for (const hole of holesFor(side)) {
+      const h = el("div", "pv-hole");
+      h.style.width = h.style.height = (hole.r * 2 * pxPerPt) + "px";
+      h.style.left = (hole.x * pxPerPt - hole.r * pxPerPt) + "px";
+      h.style.top = (PAGE_H - hole.y * pxPerPt - hole.r * pxPerPt) + "px";
+      sheet.appendChild(h);
+    }
+    sheet.appendChild(el("div", "pv-guide " + side));
+
+    for (const it of pg.items) {
+      const box = it.slot === "full" ? fullTarget(S, side)
+        : (it.slot === "lyreTop" ? lyreSlots(S, side).top : lyreSlots(S, side).bottom);
+      // safe-area / margin outline for this slot
+      const bx = el("div", "pv-box");
+      bx.style.left = (box.x * pxPerPt) + "px";
+      bx.style.top = (PAGE_H - (box.y + box.h) * pxPerPt) + "px";
+      bx.style.width = (box.w * pxPerPt) + "px";
+      bx.style.height = (box.h * pxPerPt) + "px";
+      sheet.appendChild(bx);
+      await addPvItem(sheet, it.r, box, pxPerPt, PAGE_H, S);
+    }
+
+    const wrap = el("div", "pv-sheet-wrap");
+    wrap.append(cap, sheet);
+    body.appendChild(wrap);
+  }
+}
+
+async function addPvItem(sheet, r, box, pxPerPt, PAGE_H, S) {
+  const t = r.part.t || (r.part.t = defT());
+  const pix = await pagePix(r.song, r.part);
+  const clip = await getClip(r.song, r.part, S.trim, { getSize: () => ({ width: pix.ptW, height: pix.ptH }) });
+  const item = el("div", "pv-item");
+  item.title = `${r.song.name} · from page ${r.part.src + 1} — drag to reposition`;
+
+  function layout() {
+    const fit = fitBox(box, clip.right - clip.left, clip.top - clip.bottom, t);
+    const bw = fit.w * pxPerPt, bh = fit.h * pxPerPt;
+    item.style.width = bw + "px"; item.style.height = bh + "px";
+    item.style.left = (fit.Cx * pxPerPt - bw / 2) + "px";
+    item.style.top = (PAGE_H - fit.Cy * pxPerPt - bh / 2) + "px";
+    item.style.transform = `rotate(${-(t.rot || 0)}deg) skewX(${-(t.skew || 0)}deg)`;
+    // crop the source render down to its trimmed ink box
+    const k = fit.sc * pxPerPt;
+    item.style.backgroundImage = `url(${pix.url})`;
+    item.style.backgroundSize = `${pix.ptW * k}px ${pix.ptH * k}px`;
+    item.style.backgroundPosition = `${-clip.left * k}px ${-(pix.ptH - clip.top) * k}px`;
+  }
+  layout();
+
+  item.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    item.setPointerCapture(e.pointerId);
+    item.classList.add("drag");
+    const sx = e.clientX, sy = e.clientY, sdx = t.dx || 0, sdy = t.dy || 0;
+    const move = ev => {
+      t.dx = sdx + (ev.clientX - sx) / pxPerPt;
+      t.dy = sdy - (ev.clientY - sy) / pxPerPt;   // screen-down → PDF-down
+      layout();
+    };
+    const up = () => {
+      item.classList.remove("drag");
+      item.removeEventListener("pointermove", move);
+      item.removeEventListener("pointerup", up);
+    };
+    item.addEventListener("pointermove", move);
+    item.addEventListener("pointerup", up);
+  });
+
+  // scroll to scale
+  item.addEventListener("wheel", e => {
+    e.preventDefault();
+    t.scale = clamp((t.scale || 1) * (e.deltaY < 0 ? 1.05 : 1 / 1.05), 0.3, 2.5);
+    layout();
+  }, { passive: false });
+
+  // delete this part from the book
+  const del = el("button", "pv-del", "×");
+  del.title = "Remove this part from the book";
+  del.addEventListener("pointerdown", e => { e.stopPropagation(); });
+  del.addEventListener("click", e => { e.stopPropagation(); pvRemove(r); });
+  item.appendChild(del);
+
+  // corner handle to scale (Canva/Word-style)
+  const handle = el("div", "pv-handle");
+  handle.title = "Drag to scale";
+  handle.addEventListener("pointerdown", e => {
+    e.preventDefault(); e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+    item.classList.add("drag");
+    const rect = item.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    const d0 = Math.hypot(e.clientX - cx, e.clientY - cy) || 1, s0 = t.scale || 1;
+    const move = ev => {
+      const d = Math.hypot(ev.clientX - cx, ev.clientY - cy);
+      t.scale = clamp(s0 * d / d0, 0.3, 2.5);
+      layout();
+    };
+    const up = () => { item.classList.remove("drag"); handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up);
+  });
+  item.appendChild(handle);
+
+  sheet.appendChild(item);
+}
+function resetPreviewPositions() {
+  if (!pvBook) return;
+  const { books } = resolveBooks();
+  const b = books.get(pvBook); if (!b) return;
+  for (const r of b.full.concat(b.lyre)) if (r.part.t) { r.part.t.dx = 0; r.part.t.dy = 0; }
+  openPreview(pvBook);
+}
+/* remove one placed part from the current book (e.g. a duplicate part for a piece) */
+function pvRemove(r) {
+  const a = r.part;
+  if (a.continuation) { a.continuation = false; a.ignore = true; }                 // drop a carried part → ignore it
+  else if (a.instrument === pvBook) {
+    if (a.extra && a.extra.length) a.instrument = a.extra.shift();                  // still wanted in another book
+    else { a.instrument = null; a.ignore = true; }                                  // gone everywhere → ignore so it won't nag as untagged
+  } else if (a.extra && a.extra.includes(pvBook)) {
+    a.extra = a.extra.filter(x => x !== pvBook);                                    // just this duplicate
+  }
+  updateMeter();
+  const { books } = resolveBooks();
+  if (books.has(pvBook)) openPreview(pvBook); else closePreview();
+}
+
+/* compute trim clip (0-based, within the part's band) for one part; cached */
+async function getClip(song, part, trim, plPage) {
+  const size = plPage.getSize();           // {width,height} in pts
+  const pageH = size.height, pageW = size.width;
+  const bandTop = pageH * (1 - part.band[0]), bandBot = pageH * (1 - part.band[1]);
+  const bandClip = { left: 0, bottom: bandBot, right: pageW, top: bandTop };
+  if (!trim) return bandClip;
+  const key = song.id + ":" + part.src + ":" + part.band[0] + ":" + part.band[1];
+  if (state.clipCache.has(key)) return state.clipCache.get(key);
+  let clip;
+  try {
+    const page = await song._pdfjs.getPage(part.src + 1);
+    const vp = page.getViewport({ scale: 1, rotation: 0 });   // force native orientation
+    const c = document.createElement("canvas");
+    c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    const { data, width, height } = ctx.getImageData(0, 0, c.width, c.height);
+    const yLo = Math.max(0, Math.floor(part.band[0] * height)), yHi = Math.min(height, Math.ceil(part.band[1] * height));
+    // Adaptive threshold within the band: find the paper colour so a grey scan cast doesn't read as ink.
+    const hist = new Uint32Array(256);
+    for (let y = yLo; y < yHi; y++) for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      if (data[i + 3] < 12) { hist[255]++; continue; }
+      hist[(data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8]++;
+    }
+    let bg = 255, bgN = 0;
+    for (let v = 120; v < 256; v++) if (hist[v] > bgN) { bgN = hist[v]; bg = v; }
+    const TH = Math.max(150, Math.min(238, bg - 38));
+    let minX = width, minY = height, maxX = 0, maxY = 0, found = false;
+    for (let y = yLo; y < yHi; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        if (data[i + 3] < 12) continue;
+        const lum = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
+        if (lum < TH) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y; found = true;
+        }
+      }
+    }
+    if (!found) { clip = bandClip; }
+    else {
+      const pad = 4;
+      minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+      maxX = Math.min(width - 1, maxX + pad); maxY = Math.min(height - 1, maxY + pad);
+      const [ax, ay] = vp.convertToPdfPoint(minX, minY);
+      const [bx, by] = vp.convertToPdfPoint(maxX, maxY);
+      const [ox, oy] = page.view; // mediabox origin x0,y0
+      clip = {
+        left: Math.min(ax, bx) - ox, right: Math.max(ax, bx) - ox,
+        bottom: Math.min(ay, by) - oy, top: Math.max(ay, by) - oy,
+      };
+      // guard against degenerate
+      if (clip.right - clip.left < 4 || clip.top - clip.bottom < 4) clip = bandClip;
+    }
+  } catch (e) {
+    clip = bandClip;
+  }
+  state.clipCache.set(key, clip);
+  return clip;
+}
+
+function settings() {
+  return {
+    gutter: parseFloat($("#s-gutter").value) * IN,
+    margin: parseFloat($("#s-margin").value) * IN,
+    gap: parseFloat($("#s-gap").value) * IN,
+    edge: $("#s-edge").value,
+    duplex: $("#s-duplex").value === "1",
+    trim: $("#s-trim").value === "1",
+  };
+}
+/* which edge the gutter sits on for a given output-page index.
+   Double-sided: fronts keep the binding edge, backs mirror to the opposite edge
+   so the punched holes line up through the stack. */
+function gutterSide(S, idx) {
+  const base = S.edge === "top" ? "top" : "left";
+  if (!S.duplex) return base;
+  if (S.edge === "top") return idx % 2 === 0 ? "top" : "bottom";
+  return idx % 2 === 0 ? "left" : "right";
+}
+/* content target box (PDF points, origin bottom-left) given the gutter side */
+function fullTarget(S, side) {
+  const L = side === "left" ? S.gutter : S.margin;
+  const R = side === "right" ? S.gutter : S.margin;
+  const T = side === "top" ? S.gutter : S.margin;
+  const B = side === "bottom" ? S.gutter : S.margin;
+  return { x: L, y: B, w: LETTER.w - L - R, h: LETTER.h - T - B };
+}
+function lyreSlots(S, side) {
+  const L = side === "left" ? S.gutter : S.margin;
+  const R = side === "right" ? S.gutter : S.margin;
+  const T = side === "top" ? S.gutter : S.margin;
+  const B = side === "bottom" ? S.gutter : S.margin;
+  const x = L, w = LETTER.w - L - R;
+  const usableH = LETTER.h - T - B;
+  const slotH = (usableH - S.gap) / 2;
+  return {
+    top: { x, y: B + slotH + S.gap, w, h: slotH },
+    bottom: { x, y: B, w, h: slotH },
+  };
+}
+/* 3-hole punch centers (PDF points) along the given edge of a Letter page */
+function holesFor(side) {
+  const off = 0.5 * IN;                      // hole center 0.5" from the binding edge
+  if (side === "left" || side === "right") {
+    const x = side === "left" ? off : LETTER.w - off;
+    return [90, 396, 702].map(y => ({ x, y, r: 0.14 * IN })); // 4.25" spacing, centered
+  }
+  const y = side === "top" ? LETTER.h - off : off;
+  return [72, 306, 540].map(x => ({ x, y, r: 0.14 * IN }));   // 3.25" spacing to fit 8.5" edge
+}
+/* place an embedded page into a target box with per-page transform (rotate/scale/skew/nudge) */
+async function placeContent(outDoc, outPage, plPage, clip, box, t) {
+  t = t || defT();
+  const embedded = await outDoc.embedPage(plPage, clip);
+  const fit = fitBox(box, clip.right - clip.left, clip.top - clip.bottom, t);
+  outPage.drawPage(embedded, {
+    x: fit.x, y: fit.y, width: fit.w, height: fit.h,
+    rotate: PDFLib.degrees(t.rot || 0),
+    xSkew: PDFLib.degrees(t.skew || 0),
+  });
+}
+/* shared layout: returns the draw anchor (x,y), drawn size (w,h) and the box center,
+   so the build and the on-screen preview stay pixel-identical. */
+function fitBox(box, srcW, srcH, t) {
+  t = t || defT();
+  const rad = (t.rot || 0) * Math.PI / 180;
+  const c = Math.abs(Math.cos(rad)), s = Math.abs(Math.sin(rad));
+  const aabbW = srcW * c + srcH * s, aabbH = srcW * s + srcH * c;
+  const sc = Math.min(box.w / aabbW, box.h / aabbH) * (t.scale || 1);
+  const w = srcW * sc, h = srcH * sc;
+  const Cx = box.x + box.w / 2 + (t.dx || 0);
+  const Cy = box.y + box.h / 2 + (t.dy || 0);
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  return {
+    w, h, Cx, Cy, sc,
+    x: Cx - (w / 2) * cos + (h / 2) * sin,
+    y: Cy - (w / 2) * sin - (h / 2) * cos,
+  };
+}
+
+let lastResults = [];
+async function buildAll() {
+  if (!HAS_PDFLIB) return;
+  const S = settings();
+  const { books } = resolveBooks();
+  const names = [...books.keys()].sort((a, b) => state.vocab.findIndex(v => v.name === a) - state.vocab.findIndex(v => v.name === b));
+  const bar = $("#bar"), stat = $("#stat"), dls = $("#downloads");
+  dls.innerHTML = ""; lastResults = [];
+  $("#go-build").disabled = true; $("#dl-zip").disabled = true;
+
+  // load a pdf-lib doc per song once
+  stat.textContent = "Loading source files…";
+  const plDocs = new Map();
+  for (const song of state.songs) {
+    if (![...books.values()].some(b => b.full.concat(b.lyre).some(r => r.song === song))) continue;
+    try { plDocs.set(song.id, await PDFLib.PDFDocument.load(song.bytes.slice())); }
+    catch (e) { stat.textContent = `Couldn't open "${song.name}" — skipping.`; }
+  }
+
+  // auto-straighten any part that was never opened in Tag, so every part comes out level
+  const allRecs = [...books.values()].flatMap(b => b.full.concat(b.lyre));
+  const pending = allRecs.filter(r => !r.part.straightened);
+  for (let i = 0; i < pending.length; i++) {
+    stat.textContent = `Straightening parts… ${i + 1}/${pending.length}`;
+    await ensureStraight(pending[i].song, pending[i].part);
+    if (i % 4 === 0) await yield_();
+  }
+
+  let done = 0;
+  const total = names.length;
+  for (const name of names) {
+    const b = books.get(name);
+    const out = await PDFLib.PDFDocument.create();
+    let outIdx = 0;   // running output page index, drives duplex gutter side
+    // FULL pages, one per sheet
+    for (const r of b.full) {
+      const pdoc = plDocs.get(r.song.id); if (!pdoc) continue;
+      const plPage = pdoc.getPage(r.part.src);
+      const clip = await getClip(r.song, r.part, S.trim, plPage);
+      const page = out.addPage([LETTER.w, LETTER.h]);
+      await placeContent(out, page, plPage, clip, fullTarget(S, gutterSide(S, outIdx)), r.part.t);
+      outIdx++;
+    }
+    // LYRE pages, two per sheet
+    for (let k = 0; k < b.lyre.length; k += 2) {
+      const page = out.addPage([LETTER.w, LETTER.h]);
+      const slots = lyreSlots(S, gutterSide(S, outIdx));
+      const top = b.lyre[k], bot = b.lyre[k + 1];
+      const td = plDocs.get(top.song.id);
+      if (td) await placeContent(out, page, td.getPage(top.part.src), await getClip(top.song, top.part, S.trim, td.getPage(top.part.src)), slots.top, top.part.t);
+      if (bot) { const bd = plDocs.get(bot.song.id); if (bd) await placeContent(out, page, bd.getPage(bot.part.src), await getClip(bot.song, bot.part, S.trim, bd.getPage(bot.part.src)), slots.bottom, bot.part.t); }
+      outIdx++;
+    }
+    const bytes = await out.save();
+    lastResults.push({ name, bytes });
+    done++;
+    bar.style.width = (done / total * 100) + "%";
+    stat.textContent = `Built ${done}/${total} — ${name}`;
+    // stream a download link as each finishes
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const a = el("a", "dl"); a.href = URL.createObjectURL(blob);
+    a.download = safeName(name) + ".pdf"; a.textContent = "↓ " + name + ".pdf";
+    const line = el("div"); line.style.padding = "3px 0"; line.appendChild(a);
+    dls.appendChild(line);
+    await yield_();
+  }
+  stat.textContent = `Done — ${total} books ready below.`;
+  $("#go-build").disabled = false;
+  $("#dl-zip").disabled = !HAS_ZIP || !lastResults.length;
+  if (!HAS_ZIP) { const n = el("div", "hint"); n.style.marginTop = "6px"; n.textContent = "Zip download unavailable here — grab the individual files above."; dls.appendChild(n); }
+}
+function safeName(n) { return n.replace(/[\/\\:*?"<>|]/g, "-").trim(); }
+
+async function downloadZip() {
+  if (!HAS_ZIP || !lastResults.length) return;
+  const zip = new window.JSZip();
+  for (const r of lastResults) zip.file(safeName(r.name) + ".pdf", r.bytes);
+  const blob = await zip.generateAsync({ type: "blob" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = "part-books.zip"; a.click();
+}
+
+/* ---------- boot ---------- */
+function boot() {
+  initSetup();
+  setupDrop();
+  setupTagControls();
+  $("#go-build").addEventListener("click", buildAll);
+  $("#dl-zip").addEventListener("click", downloadZip);
+  // build preview modal
+  $("#pv-close").addEventListener("click", closePreview);
+  $("#pv-reset").addEventListener("click", resetPreviewPositions);
+  $("#pv-prev").addEventListener("click", () => pvGo(-1));
+  $("#pv-next").addEventListener("click", () => pvGo(1));
+  $("#pv-modal").addEventListener("click", e => { if (e.target === $("#pv-modal")) closePreview(); });
+  document.addEventListener("keydown", e => {
+    if ($("#pv-modal").hidden) return;
+    if (e.key === "Escape") closePreview();
+    else if (e.key === "ArrowLeft") { e.preventDefault(); pvGo(-1); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); pvGo(1); }
+  });
+  updateMeter();
+}
+boot();
+</script>
+</body>
+</html>
