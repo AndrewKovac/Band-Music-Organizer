@@ -1661,7 +1661,10 @@ function fitBox(box, srcW, srcH, t) {
   const sc = Math.min(box.w / aabbW, box.h / aabbH) * (t.scale || 1);
   const w = srcW * sc, h = srcH * sc;
   const Cx = box.x + box.w / 2 + (t.dx || 0);
-  const Cy = box.y + box.h / 2 + (t.dy || 0);
+  // Top-anchor the content within its box: the top of the rotated bounding box
+  // sits at the box's top edge, so trimmed music starts at the top of the page
+  // (like a real sheet) instead of floating centered with empty margins above.
+  const Cy = box.y + box.h - (aabbH * sc) / 2 + (t.dy || 0);
   const cos = Math.cos(rad), sin = Math.sin(rad);
   return {
     w, h, Cx, Cy, sc,
