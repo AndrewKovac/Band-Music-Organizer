@@ -55,10 +55,11 @@ don't produce false changes.
 
 ## Branding
 
-The interface uses the Cargojet palette — main `#060000`, accent `#fedc2e`
-(assumed from the provided "edc2e"), header `#5e6368`, text `#858585` — with a
-vector recreation of the wordmark (the sandbox this was built in cannot download
-the official PNG; swap it in later if pixel-perfect branding is needed).
+The interface uses the Cargojet palette — main `#060000`, accent red `#c92c3a`,
+header `#5e6368`, text `#858585` — with a red vector recreation of the wordmark
+(the sandbox this was built in cannot download the official PNG; swap it in later
+if pixel-perfect branding is needed). Caution boxes are kept amber so they read as
+warnings rather than being confused with the red cancellation highlight.
 
 Excel parsing by [SheetJS Community Edition](https://sheetjs.com) (Apache-2.0),
 embedded in the file.

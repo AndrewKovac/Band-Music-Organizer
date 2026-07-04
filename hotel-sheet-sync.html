@@ -8,11 +8,11 @@
 <title>Hotel Sheet Sync · Cargojet Crew Travel</title>
 <style>
   /* ---- Cargojet palette ----
-     main #060000 · accent #fedc2e · header #5e6368 · text #858585  */
+     main #060000 · accent #c92c3a · header #5e6368 · text #858585  */
   :root{
     --bg:#060000; --panel:#12100d; --panel-2:#1a1713; --inset:#0c0a08;
     --line:#2b2823; --line-soft:#201d19;
-    --accent:#fedc2e; --accent-dim:#c7ab1f; --accent-ink:#060000;
+    --accent:#c92c3a; --accent-dim:#9e2230; --accent-ink:#ffffff;
     --head:#5e6368; --muted:#858585; --text:#d9d6d0; --bright:#f4f2ee;
     --sched:#ffff00; --name:#a6c9ec; --new:#b5e6a2; --cancel:#ff0000;
     --ok:#7dc98f; --danger:#e05252;
@@ -39,8 +39,8 @@
   .appname b{font-size:15px;letter-spacing:.4px;color:var(--bright);font-weight:600;}
   .appname span{font-size:11.5px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;}
   .appbar .spacer{flex:1;}
-  .badge{display:inline-flex;align-items:center;gap:7px;background:rgba(254,220,46,.08);
-         color:var(--accent);border:1px solid rgba(254,220,46,.35);border-radius:999px;
+  .badge{display:inline-flex;align-items:center;gap:7px;background:rgba(201,44,58,.08);
+         color:var(--accent);border:1px solid rgba(201,44,58,.35);border-radius:999px;
          padding:5px 13px;font-size:12px;font-weight:600;letter-spacing:.2px;white-space:nowrap;}
   .badge svg{flex:none;}
 
@@ -62,8 +62,8 @@
         cursor:pointer;transition:border-color .15s,background .15s,transform .08s;
         min-height:138px;background:var(--inset);outline:none;}
   .drop:hover{border-color:#57503f;}
-  .drop:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px rgba(254,220,46,.25);}
-  .drop.over{border-color:var(--accent);background:rgba(254,220,46,.05);}
+  .drop:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,44,58,.25);}
+  .drop.over{border-color:var(--accent);background:rgba(201,44,58,.05);}
   .drop.loaded{border-style:solid;border-color:#3d382f;background:var(--panel-2);text-align:left;}
   .drop .icon{margin-bottom:8px;opacity:.9;}
   .drop .big{font-weight:600;font-size:14.5px;color:var(--bright);margin-bottom:4px;letter-spacing:.2px;}
@@ -78,7 +78,7 @@
         transition:border-color .15s,box-shadow .15s;}
   select:hover,input[type=text]:hover{border-color:#453f34;}
   select:focus-visible,input[type=text]:focus-visible{border-color:var(--accent);
-        box-shadow:0 0 0 3px rgba(254,220,46,.18);}
+        box-shadow:0 0 0 3px rgba(201,44,58,.18);}
 
   button{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);
          border-radius:var(--r-sm);background:var(--panel-2);color:var(--text);
@@ -86,9 +86,9 @@
          transition:background .15s,border-color .15s,color .15s,transform .06s;}
   button:hover{background:#232019;border-color:#453f34;color:var(--bright);}
   button:active{transform:translateY(1px);}
-  button:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(254,220,46,.3);}
+  button:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(201,44,58,.3);}
   button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700;}
-  button.primary:hover{background:#ffe75c;border-color:#ffe75c;color:var(--accent-ink);}
+  button.primary:hover{background:#e0414f;border-color:#e0414f;color:var(--accent-ink);}
   button.small{padding:4px 12px;font-size:12px;font-weight:500;}
   button:disabled{opacity:.4;cursor:not-allowed;}
   .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
@@ -99,15 +99,15 @@
   .hotelopts label:hover{background:var(--panel-2);}
   input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex:none;}
 
-  .warn{background:rgba(254,220,46,.06);border:1px solid rgba(254,220,46,.3);
-        border-radius:var(--r-sm);padding:10px 14px;margin:12px 0;font-size:13px;color:#e8d98a;}
+  .warn{background:rgba(232,180,70,.07);border:1px solid rgba(232,180,70,.3);
+        border-radius:var(--r-sm);padding:10px 14px;margin:12px 0;font-size:13px;color:#e8c98a;}
   .error{background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.4);
          border-radius:var(--r-sm);padding:10px 14px;margin:12px 0;font-size:13px;color:#eda3a3;}
   .okmsg{background:rgba(125,201,143,.08);border:1px solid rgba(125,201,143,.35);
          border-radius:var(--r-sm);padding:10px 14px;margin:12px 0;font-size:13px;color:#a8dcb4;}
 
   .tabname{font-family:Consolas,"Cascadia Mono",monospace;font-size:15px;font-weight:700;
-           color:var(--accent);background:rgba(254,220,46,.07);border:1px solid rgba(254,220,46,.3);
+           color:var(--accent);background:rgba(201,44,58,.07);border:1px solid rgba(201,44,58,.3);
            border-radius:var(--r-sm);padding:4px 12px;letter-spacing:1px;}
 
   /* ---------- review toolbar ---------- */
@@ -145,14 +145,14 @@
   tr.dim td .rowtag{opacity:.55;}
   .rowtag{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;
           letter-spacing:.8px;border-radius:4px;padding:2px 8px;text-transform:uppercase;}
-  .rowtag.master{background:rgba(254,220,46,.12);color:var(--accent);border:1px solid rgba(254,220,46,.3);}
+  .rowtag.master{background:rgba(201,44,58,.12);color:var(--accent);border:1px solid rgba(201,44,58,.3);}
   .rowtag.hotel{background:rgba(94,99,104,.18);color:#9aa0a6;border:1px solid rgba(94,99,104,.45);}
   .rowtag.newtag{background:rgba(181,230,162,.14);color:var(--new);border:1px solid rgba(181,230,162,.4);}
   .rowtag.cantag{background:rgba(255,0,0,.14);color:#ff7a7a;border:1px solid rgba(255,0,0,.4);}
 
   /* diff cell states */
   td.d{cursor:pointer;border-radius:4px;outline-offset:-2px;position:relative;}
-  td.d:focus-visible{box-shadow:0 0 0 3px rgba(254,220,46,.35) inset;}
+  td.d:focus-visible{box-shadow:0 0 0 3px rgba(201,44,58,.35) inset;}
   td.d-src{outline:2px dashed;outline-offset:-2px;cursor:pointer;border-radius:4px;}
   td.c-sched{outline:2px solid var(--sched);}       td.d-src.c-sched{outline-color:rgba(255,255,0,.55);}
   td.c-name{outline:2px solid var(--name);}         td.d-src.c-name{outline-color:rgba(166,201,236,.55);}
@@ -248,8 +248,8 @@
     <!-- Cargojet wordmark (recreated as vector; swap for official PNG asset if preferred) -->
     <svg class="logo" width="178" height="34" viewBox="0 0 356 68" role="img" aria-label="Cargojet">
       <text x="2" y="47" font-family="Arial, Helvetica, sans-serif" font-style="italic"
-            font-weight="900" font-size="44" letter-spacing="1" fill="#fedc2e">CARGOJET</text>
-      <path d="M6 58 L306 58 L322 50 L338 58 L330 61 L6 61 Z" fill="#fedc2e"/>
+            font-weight="900" font-size="44" letter-spacing="1" fill="#c92c3a">CARGOJET</text>
+      <path d="M6 58 L306 58 L322 50 L338 58 L330 61 L6 61 Z" fill="#c92c3a"/>
     </svg>
     <div class="appname">
       <b>Hotel Sheet Sync</b>
@@ -257,7 +257,7 @@
     </div>
     <div class="spacer"></div>
     <span class="badge">
-      <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M3 6V4a3 3 0 0 1 6 0v2" stroke="#fedc2e" stroke-width="1.5"/><rect x="1.5" y="6" width="9" height="6.5" rx="1.5" fill="#fedc2e"/></svg>
+      <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M3 6V4a3 3 0 0 1 6 0v2" stroke="#c92c3a" stroke-width="1.5"/><rect x="1.5" y="6" width="9" height="6.5" rx="1.5" fill="#c92c3a"/></svg>
       100% local — nothing leaves this computer
     </span>
   </header>
