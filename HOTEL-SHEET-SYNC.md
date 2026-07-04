@@ -52,6 +52,17 @@ parsed rows"** panel, so you can check the tool read your columns the way you ex
 before comparing. Very large sheets are capped at the first 5,000 rows (with a
 warning) so a stray formatted range can never freeze the page.
 
+## The master's date window
+
+The master sheet only speaks for the period it covers. The tool takes the earliest
+and latest check-in dates on the master (shown next to the Compare button, e.g.
+"Master covers 04JUL–10JUL") and treats any hotel booking that checks in outside
+that window as **out of scope**: it is never matched, never proposed as a
+cancellation, and passes through to the new page completely untouched. These rows
+appear dimmed with an "Out of range" tag and their own summary chip, so a hotel
+sheet that looks weeks further ahead than the master can't generate a wall of
+false cancellations. Year-end windows (e.g. 28DEC–03JAN) are handled correctly.
+
 ## How rows are matched
 
 Bookings are matched the way a scheduler thinks ("who is operating 941 on the

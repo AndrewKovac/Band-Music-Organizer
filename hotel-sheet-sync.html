@@ -188,6 +188,7 @@
   .rowtag.hotel{background:rgba(94,99,104,.18);color:#9aa0a6;border:1px solid rgba(94,99,104,.45);}
   .rowtag.newtag{background:rgba(181,230,162,.14);color:var(--new);border:1px solid rgba(181,230,162,.4);}
   .rowtag.cantag{background:rgba(255,0,0,.14);color:#ff7a7a;border:1px solid rgba(255,0,0,.4);}
+  .rowtag.outtag{background:rgba(94,99,104,.14);color:#7d848b;border:1px solid rgba(94,99,104,.35);}
 
   /* diff cell states */
   td.d{cursor:pointer;border-radius:4px;outline-offset:-2px;position:relative;}
@@ -374,7 +375,7 @@
       <div class="chips" id="chips"></div>
       <div class="spacer" style="flex:1"></div>
       <input type="text" id="search" placeholder="Filter by name, flight, date…" aria-label="Filter bookings">
-      <label class="showunch" id="unchwrap"><input type="checkbox" id="show-unch" checked> Show unchanged</label>
+      <label class="showunch" id="unchwrap"><input type="checkbox" id="show-unch" checked> Show untouched rows</label>
       <button class="small" id="btn-all">Approve all</button>
       <button class="small" id="btn-none">Clear all</button>
     </div>
@@ -408,7 +409,7 @@
   <footer>
     Hotel Sheet Sync runs entirely inside this one file, in your browser — it never uploads, saves or
     transmits anything, and works with the network disconnected. Refreshing the page clears all loaded data.<br>
-    Cargojet Crew Travel internal tool · v1.2 · Excel parsing by SheetJS Community Edition (Apache-2.0).
+    Cargojet Crew Travel internal tool · v1.3 · Excel parsing by SheetJS Community Edition (Apache-2.0).
   </footer>
 </div>
 
@@ -804,6 +805,45 @@ function computeTabName(date,initials,suffix){
          canonText(initials).replace(/\s+/g,'')+canonText(suffix).replace(/\s+/g,'');
 }
 
+/* ---------- master date window ----------
+   The master only speaks for the period it covers. Hotel bookings that
+   check in outside [min,max] of the master's check-in dates are out of
+   scope: never matched, never proposed as cancellations.               */
+function masterDateWindow(rows){
+  var ds=rows.map(function(r){return r.ciDate;})
+             .filter(function(d){return d && d.slice(0,4)!=='TXT:';});
+  if(!ds.length) return null;
+  var yearless=ds.some(function(d){return d.slice(0,4)==='0000';});
+  if(yearless){
+    var mds=ds.map(function(d){return d.slice(5);}).sort();
+    return {md:true,min:mds[0],max:mds[mds.length-1]};
+  }
+  ds.sort();
+  return {md:false,min:ds[0],max:ds[ds.length-1]};
+}
+function inWindow(win,ciDate){
+  if(!win) return true;                                   /* no window known -> everything in scope */
+  if(!ciDate || ciDate.slice(0,4)==='TXT:') return true;  /* unknown date -> keep for human review  */
+  if(win.md || ciDate.slice(0,4)==='0000'){
+    var md=ciDate.slice(5);
+    var mn=win.md?win.min:win.min.slice(5), mx=win.md?win.max:win.max.slice(5);
+    if(mn<=mx) return md>=mn && md<=mx;
+    return md>=mn || md<=mx;                              /* window wraps the new year */
+  }
+  return ciDate>=win.min && ciDate<=win.max;
+}
+function fmtISOday(iso){
+  var p=iso.split('-');
+  return p[2]+MONTH_NAMES[+p[1]-1];
+}
+function fmtWindow(win){
+  if(!win) return '';
+  if(win.md) return fmtISOday('0000-'+win.min)+'–'+fmtISOday('0000-'+win.max);
+  var s=fmtISOday(win.min), e=fmtISOday(win.max);
+  if(win.min.slice(0,4)!==win.max.slice(0,4)){ s+=win.min.slice(2,4); e+=win.max.slice(2,4); }
+  return s+'–'+e;
+}
+
 /* hotel-name filtering: master holds every hotel */
 function distinctHotels(rows){
   var map={};
@@ -833,7 +873,8 @@ if(typeof module!=='undefined'&&module.exports){
     diffPair:diffPair,buildOutput:buildOutput,outputToClipboardHtml:outputToClipboardHtml,
     outputToTsv:outputToTsv,computeTabName:computeTabName,distinctHotels:distinctHotels,
     hotelSimilarity:hotelSimilarity,dominantHotelName:dominantHotelName,dispOf:dispOf,
-    isHeaderGridRow:isHeaderGridRow,nameSetKey:nameSetKey};
+    isHeaderGridRow:isHeaderGridRow,nameSetKey:nameSetKey,
+    masterDateWindow:masterDateWindow,inWindow:inWindow,fmtWindow:fmtWindow};
 }
 </script>
 
@@ -1084,7 +1125,10 @@ if(typeof module!=='undefined'&&module.exports){
     }else{
       var canons=selectedHotelCanons();
       var n=S.master.rows.filter(function(r){ return canons.indexOf(r.hotel)>=0; }).length;
-      $('cmp-scope').textContent=n+' master rows will be compared against '+S.hotel.rows.length+' hotel-sheet rows.';
+      var win=masterDateWindow(S.master.rows);
+      $('cmp-scope').textContent=n+' master rows will be compared against '+S.hotel.rows.length+
+        ' hotel-sheet rows.'+(win?' Master covers '+fmtWindow(win)+
+        ' — hotel bookings outside that window are left untouched.':'');
     }
   }
 
@@ -1097,14 +1141,20 @@ if(typeof module!=='undefined'&&module.exports){
     var canons=selectedHotelCanons();
     if(!canons.length){ refreshCompareState(); return; }
     var masterRows=S.master.rows.filter(function(r){ return canons.indexOf(r.hotel)>=0; });
-    var res=matchRows(masterRows,S.hotel.rows);
+    /* the master only covers its own date window — hotel bookings outside it
+       are out of scope: never matched, never proposed as cancellations      */
+    var win=masterDateWindow(S.master.rows);
+    var inScope=[], outside=[];
+    S.hotel.rows.forEach(function(h){ (inWindow(win,h.ciDate)?inScope:outside).push(h); });
+    var res=matchRows(masterRows,inScope);
     var updates=[],unchanged=[];
     res.matches.forEach(function(mt){
       var items=diffPair(mt.m,mt.h).map(function(it){ it.ck=false; return it; });
       if(items.length) updates.push({m:mt.m,h:mt.h,why:mt.why,items:items});
       else unchanged.push(mt);
     });
-    S.result={updates:updates,unchanged:unchanged,
+    S.result={updates:updates,unchanged:unchanged,win:win,
+              outside:outside,
               news:res.newMaster.map(function(m){return {m:m,ck:false};}),
               cancels:res.cancelledHotel.map(function(h){return {h:h,ck:false};})};
     buildEntries();
@@ -1125,6 +1175,7 @@ if(typeof module!=='undefined'&&module.exports){
     var R=S.result, entries=[];
     R.updates.forEach(function(u){ entries.push({kind:'update',u:u,h:u.h,m:u.m,order:u.h.srcRow}); });
     R.unchanged.forEach(function(mt){ entries.push({kind:'unchanged',h:mt.h,m:mt.m,order:mt.h.srcRow}); });
+    R.outside.forEach(function(h){ entries.push({kind:'outside',h:h,order:h.srcRow}); });
     R.cancels.forEach(function(c){ entries.push({kind:'cancel',c:c,h:c.h,order:c.h.srcRow}); });
     entries.sort(function(a,b){ return a.order-b.order; });
     R.news.forEach(function(n){ entries.push({kind:'new',n:n,m:n.m,order:1e9}); });
@@ -1193,7 +1244,10 @@ if(typeof module!=='undefined'&&module.exports){
       chip(C_NAME, sn+' name', sna, sn)+
       chip(C_NEW, R.news.length+' new', na, R.news.length)+
       chip(C_CANCEL, R.cancels.length+' possible cancellation'+(R.cancels.length!==1?'s':''), ca, R.cancels.length)+
-      '<span class="chip"><span class="dot" style="background:#3f3a3a"></span>'+R.unchanged.length+' unchanged</span>';
+      '<span class="chip"><span class="dot" style="background:#3f3a3a"></span>'+R.unchanged.length+' unchanged</span>'+
+      (R.outside.length?'<span class="chip" title="Check-in outside the master’s window ('+
+        escHtml(fmtWindow(R.win))+') — left untouched"><span class="dot" style="background:#5e6368"></span>'+
+        R.outside.length+' outside window</span>':'');
     var c=approvedCounts();
     $('approve-count').innerHTML='<b>'+c.approved+'</b> of '+c.total+' proposed changes approved';
   }
@@ -1254,6 +1308,14 @@ if(typeof module!=='undefined'&&module.exports){
         }
         h.push('</tr>');
       }
+      if(e.kind==='outside'){
+        h.push('<tr data-grp="'+ei+'" class="grp-first dim"><td class="lbl" title="'+
+               escHtml('Check-in '+(e.h.disp[3]||'?')+' is outside the master\'s window ('+
+               fmtWindow(S.result.win)+') — this row is left untouched.')+
+               '"><span class="rowtag outtag">Out of range</span></td>');
+        for(var c5=0;c5<16;c5++) h.push('<td>'+escHtml(e.h.disp[c5]||'')+'</td>');
+        h.push('</tr>');
+      }
       if(e.kind==='cancel'){
         var apprC=e.c.ck?' appr':'';
         h.push('<tr data-grp="'+ei+'" class="grp-first"><td class="lbl"><span class="rowtag cantag">Cancel?</span></td>');
@@ -1276,7 +1338,8 @@ if(typeof module!=='undefined'&&module.exports){
     var showU=$('show-unch').checked;
     document.querySelectorAll('#gridwrap tr[data-grp]').forEach(function(tr){
       var e=S.entries[+tr.dataset.grp];
-      var vis=(showU||e.kind!=='unchanged') && (!q||e.search.indexOf(q)>=0);
+      var untouched=(e.kind==='unchanged'||e.kind==='outside');
+      var vis=(showU||!untouched) && (!q||e.search.indexOf(q)>=0);
       tr.style.display=vis?'':'none';
     });
     document.querySelectorAll('#groups .booking[data-search]').forEach(function(b){
@@ -1348,6 +1411,14 @@ if(typeof module!=='undefined'&&module.exports){
       html+='<details class="unchanged"><summary>Unchanged bookings ('+R.unchanged.length+')</summary><ul>';
       R.unchanged.forEach(function(mt){
         html+='<li>'+escHtml(crewLine(mt.h))+' — '+stayLine(mt.h)+'</li>';
+      });
+      html+='</ul></details>';
+    }
+    if(R.outside.length){
+      html+='<details class="unchanged"><summary>Outside master window ('+R.outside.length+
+        ') — the master covers '+escHtml(fmtWindow(R.win))+', these check in beyond it and are left untouched</summary><ul>';
+      R.outside.forEach(function(h){
+        html+='<li>'+escHtml(crewLine(h))+' — '+stayLine(h)+'</li>';
       });
       html+='</ul></details>';
     }
