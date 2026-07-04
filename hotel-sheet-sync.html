@@ -5,44 +5,65 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- Block ALL network access from this page. Everything runs locally. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c92c3a'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='900' font-style='italic' font-size='14' fill='white' text-anchor='middle'%3ECJ%3C/text%3E%3C/svg%3E">
 <title>Hotel Sheet Sync · Cargojet Crew Travel</title>
 <style>
   /* ---- Cargojet palette ----
      main #060000 · accent #c92c3a · header #5e6368 · text #858585  */
   :root{
-    --bg:#060000; --panel:#12100d; --panel-2:#1a1713; --inset:#0c0a08;
-    --line:#2b2823; --line-soft:#201d19;
-    --accent:#c92c3a; --accent-dim:#9e2230; --accent-ink:#ffffff;
+    --bg:#060000; --panel:#120e0e; --panel-2:#1a1414; --inset:#0c0808;
+    --line:#2b2323; --line-soft:#201919;
+    --accent:#c92c3a; --accent-hi:#e0414f; --accent-dim:#9e2230; --accent-ink:#ffffff;
     --head:#5e6368; --muted:#858585; --text:#d9d6d0; --bright:#f4f2ee;
     --sched:#ffff00; --name:#a6c9ec; --new:#b5e6a2; --cancel:#ff0000;
     --ok:#7dc98f; --danger:#e05252;
-    --r:10px; --r-sm:7px;
-    --shadow:0 10px 30px rgba(0,0,0,.55);
+    --r:12px; --r-sm:8px;
+    --shadow:0 12px 34px rgba(0,0,0,.6);
   }
   *{box-sizing:border-box}
   ::selection{background:var(--accent);color:var(--accent-ink);}
-  html{scrollbar-color:#3a362f var(--bg);}
+  html{scrollbar-color:#3a2f2f var(--bg);scroll-behavior:smooth;}
   ::-webkit-scrollbar{width:11px;height:11px;}
   ::-webkit-scrollbar-track{background:transparent;}
-  ::-webkit-scrollbar-thumb{background:#37332c;border-radius:8px;border:2px solid var(--bg);}
-  ::-webkit-scrollbar-thumb:hover{background:#4a453c;}
+  ::-webkit-scrollbar-thumb{background:#372c2c;border-radius:8px;border:2px solid var(--bg);}
+  ::-webkit-scrollbar-thumb:hover{background:#4a3c3c;}
   body{margin:0;background:var(--bg);color:var(--text);
        font:14px/1.5 "Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
        -webkit-font-smoothing:antialiased;}
-  .wrap{max-width:1240px;margin:0 auto;padding:0 28px 120px;}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 28px 130px;}
+
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .reveal{animation:rise .4s cubic-bezier(.2,.7,.3,1) both;}
+  @keyframes spinner{to{transform:rotate(360deg)}}
+  .spin{width:17px;height:17px;border:2.5px solid #3a2f2f;border-top-color:var(--accent);
+        border-radius:50%;animation:spinner .8s linear infinite;display:inline-block;
+        vertical-align:-4px;margin-right:9px;flex:none;}
+  @keyframes pop{0%{transform:scale(.9)}70%{transform:scale(1.03)}100%{transform:none}}
 
   /* ---------- app bar ---------- */
-  .appbar{display:flex;align-items:center;gap:18px;padding:16px 0 14px;
-          border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap;}
+  .appbar{display:flex;align-items:center;gap:18px;padding:16px 0 12px;flex-wrap:wrap;}
   .logo{flex:none;display:block;}
   .appname{display:flex;flex-direction:column;gap:1px;}
   .appname b{font-size:15px;letter-spacing:.4px;color:var(--bright);font-weight:600;}
-  .appname span{font-size:11.5px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;}
-  .appbar .spacer{flex:1;}
-  .badge{display:inline-flex;align-items:center;gap:7px;background:rgba(201,44,58,.08);
-         color:var(--accent);border:1px solid rgba(201,44,58,.35);border-radius:999px;
+  .appname span{font-size:11px;color:var(--muted);letter-spacing:.7px;text-transform:uppercase;}
+  .appbar .spacer,.subbar .spacer{flex:1;}
+  .badge{display:inline-flex;align-items:center;gap:7px;background:rgba(201,44,58,.09);
+         color:#ef8b95;border:1px solid rgba(201,44,58,.4);border-radius:999px;
          padding:5px 13px;font-size:12px;font-weight:600;letter-spacing:.2px;white-space:nowrap;}
   .badge svg{flex:none;}
+  .subbar{display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--line);
+          padding:0 0 12px;margin-bottom:22px;flex-wrap:wrap;}
+  .stepper{display:flex;gap:6px;flex-wrap:wrap;}
+  .stp{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);
+       background:transparent;color:#6a655e;border-radius:999px;padding:5px 14px 5px 6px;
+       font-size:12.5px;font-weight:600;cursor:pointer;transition:all .18s;}
+  .stp i{font-style:normal;width:20px;height:20px;border-radius:50%;background:#241d1d;
+         color:#7a7268;display:inline-flex;align-items:center;justify-content:center;
+         font-size:11px;font-weight:800;transition:all .18s;}
+  .stp.on{color:var(--text);border-color:#453838;}
+  .stp.on i{background:var(--accent);color:#fff;}
+  .stp:hover{border-color:#5a4a4a;color:var(--bright);}
+  .stp:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(201,44,58,.35);}
 
   /* ---------- cards / steps ---------- */
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
@@ -53,49 +74,65 @@
            display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;
            font-weight:800;flex:none;letter-spacing:0;}
   .cnt{color:var(--muted);font-size:12.5px;}
-  .hint-strong{color:var(--head);}
 
   /* ---------- drop zones ---------- */
   .drops{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
   @media (max-width:820px){.drops{grid-template-columns:1fr}}
-  .drop{border:1.5px dashed #3d382f;border-radius:var(--r);padding:22px;text-align:center;
-        cursor:pointer;transition:border-color .15s,background .15s,transform .08s;
-        min-height:138px;background:var(--inset);outline:none;}
-  .drop:hover{border-color:#57503f;}
-  .drop:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,44,58,.25);}
-  .drop.over{border-color:var(--accent);background:rgba(201,44,58,.05);}
-  .drop.loaded{border-style:solid;border-color:#3d382f;background:var(--panel-2);text-align:left;}
-  .drop .icon{margin-bottom:8px;opacity:.9;}
+  .drop{border:1.5px dashed #43332f;border-radius:var(--r);padding:22px;text-align:center;
+        cursor:pointer;transition:border-color .18s,background .18s;
+        min-height:140px;background:var(--inset);outline:none;position:relative;}
+  .drop:hover{border-color:#5f4a44;background:#100a0a;}
+  .drop:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,44,58,.3);}
+  .drop.over{border-color:var(--accent);background:rgba(201,44,58,.06);
+             box-shadow:0 0 0 4px rgba(201,44,58,.15) inset;}
+  .drop.loaded{border-style:solid;border-color:#3d302c;background:var(--panel-2);text-align:left;cursor:default;}
+  .drop.loaded:hover{border-color:#54413c;}
+  .drop .icon{margin-bottom:8px;opacity:.85;}
   .drop .big{font-weight:600;font-size:14.5px;color:var(--bright);margin-bottom:4px;letter-spacing:.2px;}
-  .drop .hint{color:var(--muted);font-size:12.5px;line-height:1.6;}
-  .filemeta .big{display:flex;align-items:center;gap:8px;}
+  .drop .hint{color:var(--muted);font-size:12.5px;line-height:1.65;}
+  .filemeta .big{display:flex;align-items:center;gap:9px;}
   .filemeta .fname{color:var(--text);font-size:13px;word-break:break-all;margin-top:2px;}
   .sheetpick{margin-top:10px;font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:8px;}
-  .okdot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;box-shadow:0 0 8px rgba(125,201,143,.6);}
+  .okdot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none;
+         box-shadow:0 0 8px rgba(125,201,143,.6);}
+  .okdot.bad{background:var(--danger);box-shadow:0 0 8px rgba(224,82,82,.6);}
+  .rebrowse{margin-top:10px;}
+  .peek{margin-top:9px;}
+  .peek summary{cursor:pointer;color:var(--muted);font-size:12px;user-select:none;}
+  .peek summary:hover{color:var(--text);}
+  .peek .rowprev{margin-top:6px;}
 
   select,input[type=text]{font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--line);
         border-radius:var(--r-sm);background:var(--inset);color:var(--text);outline:none;
         transition:border-color .15s,box-shadow .15s;}
-  select:hover,input[type=text]:hover{border-color:#453f34;}
+  select:hover,input[type=text]:hover{border-color:#4a3a3a;}
   select:focus-visible,input[type=text]:focus-visible{border-color:var(--accent);
-        box-shadow:0 0 0 3px rgba(201,44,58,.18);}
+        box-shadow:0 0 0 3px rgba(201,44,58,.2);}
+  input::placeholder{color:#5c554e;}
 
   button{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);
          border-radius:var(--r-sm);background:var(--panel-2);color:var(--text);
          padding:9px 18px;cursor:pointer;letter-spacing:.2px;
-         transition:background .15s,border-color .15s,color .15s,transform .06s;}
-  button:hover{background:#232019;border-color:#453f34;color:var(--bright);}
+         transition:background .16s,border-color .16s,color .16s,transform .06s,box-shadow .16s;}
+  button:hover{background:#251c1c;border-color:#4a3a3a;color:var(--bright);}
   button:active{transform:translateY(1px);}
-  button:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(201,44,58,.3);}
-  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700;}
-  button.primary:hover{background:#e0414f;border-color:#e0414f;color:var(--accent-ink);}
+  button:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(201,44,58,.35);}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);
+                 font-weight:700;box-shadow:0 4px 16px rgba(201,44,58,.25);}
+  button.primary:hover{background:var(--accent-hi);border-color:var(--accent-hi);color:var(--accent-ink);
+                       box-shadow:0 6px 20px rgba(201,44,58,.35);}
   button.small{padding:4px 12px;font-size:12px;font-weight:500;}
-  button:disabled{opacity:.4;cursor:not-allowed;}
+  button.ghost{background:transparent;}
+  button:disabled{opacity:.38;cursor:not-allowed;box-shadow:none;}
+  button:disabled:hover{background:var(--accent);border-color:var(--accent);transform:none;}
+  button.copied{background:#2f7a43;border-color:#2f7a43;color:#fff;}
   .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
 
-  .hotelopts{display:flex;flex-direction:column;gap:2px;margin-top:4px;}
+  .hotelopts{display:flex;flex-direction:column;gap:2px;margin-top:4px;max-height:240px;overflow:auto;
+             border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:6px;background:var(--inset);}
+  .hotelopts:empty{display:none;}
   .hotelopts label{display:flex;gap:10px;align-items:baseline;padding:5px 8px;cursor:pointer;
-                   border-radius:var(--r-sm);transition:background .12s;color:var(--text);}
+                   border-radius:6px;transition:background .12s;color:var(--text);}
   .hotelopts label:hover{background:var(--panel-2);}
   input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex:none;}
 
@@ -107,30 +144,32 @@
          border-radius:var(--r-sm);padding:10px 14px;margin:12px 0;font-size:13px;color:#a8dcb4;}
 
   .tabname{font-family:Consolas,"Cascadia Mono",monospace;font-size:15px;font-weight:700;
-           color:var(--accent);background:rgba(201,44,58,.07);border:1px solid rgba(201,44,58,.3);
+           color:#ef8b95;background:rgba(201,44,58,.08);border:1px solid rgba(201,44,58,.35);
            border-radius:var(--r-sm);padding:4px 12px;letter-spacing:1px;}
 
   /* ---------- review toolbar ---------- */
-  .revbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;}
+  .revbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
   .seg{display:inline-flex;background:var(--inset);border:1px solid var(--line);
        border-radius:var(--r-sm);padding:3px;gap:2px;}
   .seg button{border:none;background:transparent;color:var(--muted);padding:6px 16px;
-              font-size:12.5px;border-radius:5px;font-weight:600;}
+              font-size:12.5px;border-radius:6px;font-weight:600;}
   .seg button:hover{color:var(--bright);background:transparent;}
   .seg button.on{background:var(--accent);color:var(--accent-ink);}
   .chips{display:flex;gap:8px;flex-wrap:wrap;}
   .chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);
         background:var(--inset);border-radius:999px;padding:4px 13px;font-size:12px;
-        color:var(--muted);font-weight:500;}
+        color:var(--muted);font-weight:500;white-space:nowrap;}
   .chip b{color:var(--bright);font-weight:700;}
   .dot{width:9px;height:9px;border-radius:2.5px;flex:none;border:1px solid rgba(0,0,0,.4);}
-  .showunch{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);cursor:pointer;}
+  .showunch{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);
+            cursor:pointer;white-space:nowrap;}
+  #search{min-width:210px;}
 
   /* ---------- grid (side-by-side) view ---------- */
   #gridwrap{overflow:auto;max-height:62vh;border:1px solid var(--line);border-radius:var(--r);
             background:var(--inset);}
   table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;white-space:nowrap;min-width:100%;}
-  table.grid th{position:sticky;top:0;z-index:3;background:#161310;color:var(--head);
+  table.grid th{position:sticky;top:0;z-index:3;background:#171111;color:var(--head);
                 font-weight:600;font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;
                 padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);}
   table.grid th.lbl{left:0;z-index:4;}
@@ -139,39 +178,40 @@
   table.grid td.lbl{position:sticky;left:0;z-index:2;background:var(--inset);
                     border-right:1px solid var(--line);padding:6px 12px;}
   tr.rmaster td{background:rgba(255,255,255,.022);}
-  tr.rmaster td.lbl{background:#14120e;}
+  tr.rmaster td.lbl{background:#151010;}
   tr.grp-first td{border-top:10px solid var(--bg);}
-  tr.dim td{color:#5a564f;}
+  tr.dim td{color:#5a544f;}
   tr.dim td .rowtag{opacity:.55;}
   .rowtag{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;
           letter-spacing:.8px;border-radius:4px;padding:2px 8px;text-transform:uppercase;}
-  .rowtag.master{background:rgba(201,44,58,.12);color:var(--accent);border:1px solid rgba(201,44,58,.3);}
+  .rowtag.master{background:rgba(201,44,58,.14);color:#ef8b95;border:1px solid rgba(201,44,58,.4);}
   .rowtag.hotel{background:rgba(94,99,104,.18);color:#9aa0a6;border:1px solid rgba(94,99,104,.45);}
   .rowtag.newtag{background:rgba(181,230,162,.14);color:var(--new);border:1px solid rgba(181,230,162,.4);}
   .rowtag.cantag{background:rgba(255,0,0,.14);color:#ff7a7a;border:1px solid rgba(255,0,0,.4);}
 
   /* diff cell states */
   td.d{cursor:pointer;border-radius:4px;outline-offset:-2px;position:relative;}
-  td.d:focus-visible{box-shadow:0 0 0 3px rgba(201,44,58,.35) inset;}
+  td.d:focus-visible{box-shadow:0 0 0 3px rgba(201,44,58,.4) inset;}
   td.d-src{outline:2px dashed;outline-offset:-2px;cursor:pointer;border-radius:4px;}
   td.c-sched{outline:2px solid var(--sched);}       td.d-src.c-sched{outline-color:rgba(255,255,0,.55);}
   td.c-name{outline:2px solid var(--name);}         td.d-src.c-name{outline-color:rgba(166,201,236,.55);}
   /* row-level proposals (new / cancel): softer dashed outline + faint tint */
   td.c-new{outline:1.5px dashed rgba(181,230,162,.6);background:rgba(181,230,162,.05);}
   td.c-cancel{outline:1.5px dashed rgba(255,60,60,.55);background:rgba(255,0,0,.05);}
-  td.appr{outline:none;color:#111 !important;font-weight:600;}
+  td.appr{outline:none;color:#111 !important;font-weight:600;animation:pop .16s ease-out;}
   td.appr.c-sched{background:var(--sched);}
   td.appr.c-name{background:var(--name);}
   td.appr.c-new{background:var(--new);}
   td.appr.c-cancel{background:var(--cancel);color:#fff !important;text-decoration:line-through;}
-  td.d:hover:not(.appr){background:rgba(255,255,255,.04);}
+  td.d:hover:not(.appr){background:rgba(255,255,255,.045);}
   .apprmark{font-size:10px;margin-left:5px;}
 
   /* ---------- tooltip ---------- */
-  #tip{position:fixed;z-index:50;background:#1e1b16;border:1px solid #3b362d;border-radius:9px;
+  #tip{position:fixed;z-index:50;background:#201717;border:1px solid #453232;border-radius:10px;
        box-shadow:var(--shadow);padding:12px 14px;font-size:12.5px;max-width:340px;
-       opacity:0;pointer-events:none;transition:opacity .12s;color:var(--text);}
-  #tip.show{opacity:1;pointer-events:auto;}
+       opacity:0;transform:translateY(4px);pointer-events:none;
+       transition:opacity .14s,transform .14s;color:var(--text);}
+  #tip.show{opacity:1;transform:none;pointer-events:auto;}
   #tip .t-label{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--head);
                 font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:7px;}
   #tip .t-change{margin-bottom:10px;line-height:1.55;}
@@ -181,7 +221,7 @@
   #tip .t-note{color:var(--muted);font-size:12px;margin:-4px 0 10px;line-height:1.5;}
   #tip .t-warnnote{color:#e8b0b0;font-size:12px;margin:-4px 0 10px;line-height:1.5;}
   #tip button{width:100%;padding:7px 12px;font-size:12.5px;}
-  #tip button.undo{background:transparent;border-color:#4a453c;}
+  #tip button.undo{background:transparent;border-color:#4a3c3c;box-shadow:none;}
 
   /* ---------- card view ---------- */
   .group{margin-top:20px;}
@@ -189,7 +229,8 @@
             color:var(--bright);letter-spacing:1px;text-transform:uppercase;font-weight:700;}
   .group>h3 .gdot{width:10px;height:10px;border-radius:3px;border:1px solid rgba(0,0,0,.4);}
   .booking{border:1px solid var(--line);border-radius:var(--r-sm);padding:12px 15px;
-           margin-bottom:10px;background:var(--panel-2);}
+           margin-bottom:10px;background:var(--panel-2);transition:border-color .15s;}
+  .booking:hover{border-color:#4a3a3a;}
   .booking .who{font-weight:600;color:var(--bright);}
   .booking .meta{color:var(--muted);font-size:12px;margin:3px 0 10px;}
   table.diff{border-collapse:collapse;width:100%;font-size:13px;}
@@ -204,7 +245,7 @@
   .rowprev{overflow-x:auto;margin:8px 0 2px;}
   .rowprev table{border-collapse:collapse;font-size:11.5px;white-space:nowrap;}
   .rowprev td,.rowprev th{border:1px solid var(--line);padding:3px 8px;}
-  .rowprev th{background:#161310;color:var(--head);font-weight:600;font-size:10px;
+  .rowprev th{background:#171111;color:var(--head);font-weight:600;font-size:10px;
               letter-spacing:.5px;text-transform:uppercase;}
   .rowprev td{color:var(--text);}
   .cklabel{display:flex;align-items:center;gap:9px;font-weight:600;cursor:pointer;color:var(--bright);}
@@ -228,21 +269,35 @@
 
   /* ---------- sticky action bar ---------- */
   #actionbar{position:fixed;left:0;right:0;bottom:0;z-index:40;
-             background:rgba(10,8,5,.92);backdrop-filter:blur(10px);
+             background:rgba(12,7,7,.92);backdrop-filter:blur(10px);
              border-top:1px solid var(--line);padding:12px 28px;
              display:none;align-items:center;gap:18px;}
-  #actionbar.show{display:flex;}
+  #actionbar.show{display:flex;animation:rise .3s ease-out both;}
   #actionbar .abar-inner{max-width:1240px;margin:0 auto;display:flex;align-items:center;
                          gap:18px;width:100%;flex-wrap:wrap;}
   #approve-count{font-size:13px;color:var(--muted);}
-  #approve-count b{color:var(--accent);}
+  #approve-count b{color:#ef8b95;}
 
-  footer{color:#57534b;font-size:11.5px;margin-top:34px;border-top:1px solid var(--line);
+  /* ---------- toast ---------- */
+  #toast{position:fixed;bottom:82px;left:50%;transform:translate(-50%,14px);z-index:60;
+         background:#231919;border:1px solid #4a3838;color:var(--bright);border-radius:999px;
+         padding:9px 22px;font-size:13px;font-weight:600;box-shadow:var(--shadow);
+         opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;}
+  #toast.show{opacity:1;transform:translate(-50%,0);}
+
+  /* ---------- diagnostics ---------- */
+  #fatal{position:fixed;top:0;left:0;right:0;z-index:100;background:#4a1015;color:#ffd9d9;
+         border-bottom:2px solid #a33540;padding:12px 22px;font-size:12.5px;
+         font-family:Consolas,"Cascadia Mono",monospace;white-space:pre-wrap;
+         box-shadow:0 6px 20px rgba(0,0,0,.6);max-height:40vh;overflow:auto;}
+
+  footer{color:#584f4f;font-size:11.5px;margin-top:34px;border-top:1px solid var(--line);
          padding-top:14px;line-height:1.7;}
   .hidden{display:none !important;}
 </style>
 </head>
 <body>
+<div id="fatal" class="hidden" role="alert"></div>
 <div class="wrap">
   <header class="appbar">
     <!-- Cargojet wordmark (recreated as vector; swap for official PNG asset if preferred) -->
@@ -257,10 +312,20 @@
     </div>
     <div class="spacer"></div>
     <span class="badge">
-      <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M3 6V4a3 3 0 0 1 6 0v2" stroke="#c92c3a" stroke-width="1.5"/><rect x="1.5" y="6" width="9" height="6.5" rx="1.5" fill="#c92c3a"/></svg>
+      <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M3 6V4a3 3 0 0 1 6 0v2" stroke="#ef8b95" stroke-width="1.5"/><rect x="1.5" y="6" width="9" height="6.5" rx="1.5" fill="#ef8b95"/></svg>
       100% local — nothing leaves this computer
     </span>
   </header>
+  <div class="subbar">
+    <nav class="stepper" aria-label="Progress">
+      <button class="stp on" data-goto="step1"><i>1</i>Load</button>
+      <button class="stp" data-goto="step2"><i>2</i>Hotel</button>
+      <button class="stp" data-goto="step3"><i>3</i>Review</button>
+      <button class="stp" data-goto="step4"><i>4</i>Export</button>
+    </nav>
+    <div class="spacer"></div>
+    <button class="small ghost" id="btn-reset" title="Clear both files and all approvals">Start over</button>
+  </div>
 
   <!-- STEP 1: files -->
   <div class="card" id="step1">
@@ -293,8 +358,8 @@
       <span class="cnt">New page will be named &nbsp;<span class="tabname" id="tabname-preview"></span></span>
     </div>
     <div class="row" style="margin-top:18px;">
-      <button class="primary" id="btn-compare">Compare sheets</button>
-      <span class="cnt" id="cmp-scope"></span>
+      <button class="primary" id="btn-compare" disabled>Compare sheets</button>
+      <span class="cnt" id="cmp-scope" aria-live="polite"></span>
     </div>
   </div>
 
@@ -308,6 +373,7 @@
       </div>
       <div class="chips" id="chips"></div>
       <div class="spacer" style="flex:1"></div>
+      <input type="text" id="search" placeholder="Filter by name, flight, date…" aria-label="Filter bookings">
       <label class="showunch" id="unchwrap"><input type="checkbox" id="show-unch" checked> Show unchanged</label>
       <button class="small" id="btn-all">Approve all</button>
       <button class="small" id="btn-none">Clear all</button>
@@ -329,7 +395,7 @@
     <div class="row">
       <span class="cnt">New page name:&nbsp; <span class="tabname" id="tabname-out"></span></span>
       <button class="primary" id="btn-copy">Copy page to clipboard</button>
-      <span id="copymsg" class="cnt"></span>
+      <span id="copymsg" class="cnt" aria-live="polite"></span>
     </div>
     <ol class="steps-inline">
       <li>Open the hotel workbook in Excel and add a new sheet (the <b>+</b> next to the tab names).</li>
@@ -342,7 +408,7 @@
   <footer>
     Hotel Sheet Sync runs entirely inside this one file, in your browser — it never uploads, saves or
     transmits anything, and works with the network disconnected. Refreshing the page clears all loaded data.<br>
-    Cargojet Crew Travel internal tool · Excel parsing by SheetJS Community Edition (Apache-2.0).
+    Cargojet Crew Travel internal tool · v1.2 · Excel parsing by SheetJS Community Edition (Apache-2.0).
   </footer>
 </div>
 
@@ -353,6 +419,7 @@
 </div></div>
 
 <div id="tip" role="tooltip"></div>
+<div id="toast" role="status"></div>
 
 <script>
 /*! xlsx.js (C) 2013-present SheetJS -- http://sheetjs.com */
@@ -505,25 +572,33 @@ function canonTime(cell){
 function sheetToGrid(ws){
   if(!ws || !ws['!ref']) return [];
   var range=XLSX.utils.decode_range(ws['!ref']);
+  /* stray formatting can push !ref to row 1,048,576 — cap so the tab never freezes */
+  var maxR=Math.min(range.e.r, range.s.r+4999);
+  var maxC=Math.min(Math.max(range.e.c,15), 39);
   var grid=[];
-  for(var r=range.s.r; r<=range.e.r; r++){
+  for(var r=range.s.r; r<=maxR; r++){
     var row=[];
-    for(var c=0; c<=Math.max(range.e.c,15); c++){
+    for(var c=0; c<=maxC; c++){
       var cell=ws[XLSX.utils.encode_cell({r:r,c:c})];
       row.push(cell?{v:cell.v,w:cell.w,t:cell.t}:null);
     }
     grid.push(row);
   }
+  if(maxR<range.e.r) grid._truncated=range.e.r+1;
   return grid;
 }
 
+/* A row is a header only if 2+ cells are exact header labels — a booking row
+   whose notes mention "check in" must never be mistaken for a header.       */
+var HEADER_CELL_RX=/^(HOTEL ?NAME|HOTEL ?LOCATION|CHECK[ \-]?IN( TIME| DATE)?|CHECK[ \-]?OUT( TIME| DATE)?|(IN|OUT)BOUND( FLIGHT| FLT)?|NAME ?[1-3]|PAIRING( CODE)?|CONF(IRMATION)? ?#? ?[1-3]?|NOTES?)$/;
 function isHeaderGridRow(g){
-  var joined=(g||[]).map(function(c){return canonText(dispOf(c));}).join('|');
-  return /HOTEL NAME|CHECK.?IN|CHECK.?OUT|NAME ?1|PAIRING|CONFIRMATION|INBOUND/.test(joined);
+  var hits=0;
+  (g||[]).forEach(function(c){ if(HEADER_CELL_RX.test(canonText(dispOf(c)))) hits++; });
+  return hits>=2;
 }
 
 function parseRows(grid,kind){
-  var rows=[];
+  var rows=[], lastHotelCanon='', lastHotelDisp='';
   for(var r=0;r<grid.length;r++){
     var g=grid[r]||[];
     if(isHeaderGridRow(g)) continue;
@@ -540,6 +615,12 @@ function parseRows(grid,kind){
     var width=(kind==='hotel')?16:13;
     for(var i=0;i<width;i++) rec.disp.push(d(i));
     rec.notes=(kind==='hotel')?d(15):d(12);
+    /* master sheets often leave the hotel name blank (or merged) on
+       continuation rows — carry the last seen hotel name downward     */
+    if(kind==='master'){
+      if(rec.hotel===''){ rec.hotel=lastHotelCanon; if(!rec.disp[0]) rec.disp[0]=lastHotelDisp; }
+      else { lastHotelCanon=rec.hotel; lastHotelDisp=rec.disp[0]; }
+    }
     var hasName=rec.nameKeys.some(function(k){return k!=='';});
     if(!hasName && rec.ciDate==='' && rec.inFlt==='') continue;    /* blank / divider row */
     rows.push(rec);
@@ -760,9 +841,64 @@ if(typeof module!=='undefined'&&module.exports){
 'use strict';
 (function(){
   var $=function(id){ return document.getElementById(id); };
-  var S={ master:null, hotel:null, result:null, output:null, view:'grid' };
+  var S={ master:null, hotel:null, result:null, entries:null, output:null, view:'grid' };
   var GRID_HEADS=['Hotel','Location','C/I time','C/I date','In flight','C/O time','C/O date',
                   'Out flight','Name 1','Name 2','Name 3','Pairing','Conf 1','Conf 2','Conf 3','Notes'];
+
+  /* ------- diagnostics: no failure is ever silent ------- */
+  function fatal(msg){
+    var f=$('fatal');
+    f.textContent='⚠  Something went wrong — screenshot this box and report it:\n\n'+msg;
+    f.classList.remove('hidden');
+  }
+  window.addEventListener('error',function(e){
+    fatal((e.message||'Unknown error')+(e.lineno?'  (line '+e.lineno+')':''));
+  });
+  window.addEventListener('unhandledrejection',function(e){
+    var r=e.reason;
+    fatal(String(r&&r.stack||r||'Unknown async error'));
+  });
+
+  /* ------- toast ------- */
+  var toastTimer=null;
+  function toast(msg){
+    var t=$('toast');
+    t.textContent=msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){ t.classList.remove('show'); },2400);
+  }
+
+  /* ------- stepper ------- */
+  function refreshStepper(){
+    var vis={step1:true,
+             step2:!$('step2').classList.contains('hidden'),
+             step3:!$('step3').classList.contains('hidden'),
+             step4:!$('step4').classList.contains('hidden')};
+    document.querySelectorAll('.stp').forEach(function(b){
+      b.classList.toggle('on',!!vis[b.dataset.goto]);
+    });
+  }
+  document.querySelectorAll('.stp').forEach(function(b){
+    b.addEventListener('click',function(){
+      var card=$(b.dataset.goto);
+      if(card.classList.contains('hidden')){ toast('Complete the earlier steps first'); return; }
+      card.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+  });
+  function showCard(id){
+    var el=$(id);
+    if(el.classList.contains('hidden')){
+      el.classList.remove('hidden');
+      el.classList.remove('reveal'); void el.offsetWidth; el.classList.add('reveal');
+    }
+    refreshStepper();
+  }
+  function hideCard(id){ $(id).classList.add('hidden'); refreshStepper(); }
+
+  $('btn-reset').addEventListener('click',function(){
+    if(confirm('Start over? This clears both files and all approvals.')) location.reload();
+  });
 
   /* ------- settings ------- */
   var saved={};
@@ -799,30 +935,67 @@ if(typeof module!=='undefined'&&module.exports){
   bindDrop('drop-hotel','file-hotel','hotel');
 
   function loadFile(file,side){
-    file.arrayBuffer().then(function(buf){
-      var wb;
-      try{ wb=XLSX.read(buf,{type:'array'}); }
-      catch(err){
-        $('filewarn').innerHTML='<div class="error">Could not read <b>'+escHtml(file.name)+
-          '</b> — is it a valid Excel file? ('+escHtml(err.message)+')</div>';
-        return;
-      }
-      var defaultSheet=(side==='hotel') ? wb.SheetNames[wb.SheetNames.length-1] : wb.SheetNames[0];
-      S[side]={ file:file.name, wb:wb, sheetName:defaultSheet, grid:null, rows:null };
-      useSheet(side,defaultSheet);
-    });
+    var zone=$( side==='master'?'drop-master':'drop-hotel');
+    zone.classList.add('loaded');
+    zone.innerHTML='<div class="filemeta"><div class="big"><span class="spin"></span>Reading '+
+      escHtml(file.name)+'…</div></div>';
+    /* let the spinner paint before the synchronous parse */
+    setTimeout(function(){
+      file.arrayBuffer().then(function(buf){
+        var wb;
+        try{ wb=XLSX.read(buf,{type:'array'}); }
+        catch(err){
+          S[side]=null;
+          zone.classList.remove('loaded');
+          zone.innerHTML='<div class="big">'+(side==='master'?'Master sheet':'Hotel sheet')+'</div>'+
+            '<div class="hint">Drag the file here, or click to browse.</div>';
+          $('filewarn').innerHTML='<div class="error">Could not read <b>'+escHtml(file.name)+
+            '</b> — is it a valid Excel file? ('+escHtml(err.message||String(err))+')</div>';
+          refreshCompareState();
+          return;
+        }
+        var defaultSheet=(side==='hotel') ? wb.SheetNames[wb.SheetNames.length-1] : wb.SheetNames[0];
+        S[side]={ file:file.name, wb:wb, sheetName:defaultSheet, grid:null, rows:null };
+        useSheet(side,defaultSheet);
+      }).catch(function(err){
+        fatal('Reading '+file.name+' failed:\n'+(err&&err.stack||err));
+      });
+    },30);
   }
 
   function useSheet(side,sheetName){
-    var st=S[side];
-    st.sheetName=sheetName;
-    st.grid=sheetToGrid(st.wb.Sheets[sheetName]);
-    st.rows=parseRows(st.grid,side);
-    renderFileZone(side);
-    warnIfSwapped();
-    if(S.master&&S.hotel){ setupHotelPicker(); $('step2').classList.remove('hidden'); }
-    $('step3').classList.add('hidden'); $('step4').classList.add('hidden');
-    $('actionbar').classList.remove('show');
+    try{
+      var st=S[side];
+      st.sheetName=sheetName;
+      st.grid=sheetToGrid(st.wb.Sheets[sheetName]);
+      st.rows=parseRows(st.grid,side);
+      renderFileZone(side);
+      warnIfSwapped();
+      if(S.master&&S.hotel){
+        setupHotelPicker();
+        var wasHidden=$('step2').classList.contains('hidden');
+        showCard('step2');
+        if(wasHidden) $('step2').scrollIntoView({behavior:'smooth',block:'nearest'});
+      }
+      hideCard('step3'); hideCard('step4');
+      $('actionbar').classList.remove('show');
+      refreshCompareState();
+    }catch(err){ fatal('Processing the '+side+' sheet failed:\n'+(err&&err.stack||err)); }
+  }
+
+  function peekTable(st,side){
+    var cols=(side==='hotel')?16:13;
+    var heads=(side==='hotel')?GRID_HEADS:GRID_HEADS.slice(0,12).concat(['Notes']);
+    var h='<div class="rowprev"><table><tr>';
+    for(var c=0;c<cols;c++) h+='<th>'+escHtml(heads[c])+'</th>';
+    h+='</tr>';
+    st.rows.slice(0,8).forEach(function(r){
+      h+='<tr>';
+      for(var c2=0;c2<cols;c2++) h+='<td>'+escHtml(r.disp[c2]||'')+'</td>';
+      h+='</tr>';
+    });
+    h+='</table></div>';
+    return h;
   }
 
   function renderFileZone(side){
@@ -831,13 +1004,22 @@ if(typeof module!=='undefined'&&module.exports){
     var opts=st.wb.SheetNames.map(function(n){
       return '<option'+(n===st.sheetName?' selected':'')+'>'+escHtml(n)+'</option>';
     }).join('');
-    zone.innerHTML='<div class="filemeta"><div class="big"><span class="okdot"></span>'+
+    var zero=st.rows.length===0;
+    zone.innerHTML='<div class="filemeta">'+
+      '<div class="big"><span class="okdot'+(zero?' bad':'')+'"></span>'+
       (side==='master'?'Master sheet':'Hotel sheet')+' loaded</div>'+
       '<div class="fname">'+escHtml(st.file)+' <span class="cnt">· '+st.rows.length+' booking rows</span></div>'+
       '<div class="sheetpick">Sheet tab <select id="sheet-'+side+'">'+opts+'</select></div>'+
-      '<div class="cnt" style="margin-top:8px">Click to choose a different file, or drag a new one here.</div></div>';
+      (zero?'<div class="error" style="margin:8px 0 0">No booking rows could be read from this tab. '+
+            'Try another tab above, and open the preview below to check what was read.</div>':'')+
+      (st.grid._truncated?'<div class="warn" style="margin:8px 0 0">This sheet reports '+st.grid._truncated+
+            ' rows; only the first 5,000 were read.</div>':'')+
+      '<details class="peek"><summary>Preview parsed rows ('+Math.min(8,st.rows.length)+' of '+
+        st.rows.length+')</summary>'+peekTable(st,side)+'</details>'+
+      '<div class="cnt rebrowse">Click to choose a different file, or drag a new one here.</div></div>';
     $('sheet-'+side).addEventListener('change',function(e){ e.stopPropagation(); useSheet(side,e.target.value); });
     $('sheet-'+side).addEventListener('click',function(e){ e.stopPropagation(); });
+    zone.querySelector('.peek').addEventListener('click',function(e){ e.stopPropagation(); });
   }
 
   function headerHasConf(grid){
@@ -864,35 +1046,56 @@ if(typeof module!=='undefined'&&module.exports){
       var s=hotelSimilarity(h.name,domName);
       if(s>bs){bs=s;best=i;}
     });
-    $('hoteldetect').innerHTML= domName
-      ? 'The hotel sheet appears to be for <b style="color:var(--bright)">'+escHtml(domName)+
-        '</b>. Tick the matching hotel(s) in the master sheet:'
-      : 'Tick the hotel(s) in the master sheet this hotel file belongs to:';
+    if(!hotels.length){
+      $('hoteldetect').innerHTML='<span class="error" style="display:block">No hotel names could be read '+
+        'from column A of the master sheet — open “Preview parsed rows” on the master box to see what was read.</span>';
+    }else if(domName){
+      $('hoteldetect').innerHTML='The hotel sheet appears to be for <b style="color:var(--bright)">'+
+        escHtml(domName)+'</b>. '+(best>=0?'The matching master hotel is ticked below — adjust if needed:'
+        :'<b style="color:#e8c98a">No master hotel auto-matched that name</b> — tick the right one below:');
+    }else{
+      $('hoteldetect').innerHTML='The hotel sheet has no hotel name in column A. Tick the hotel(s) this file belongs to:';
+    }
     $('hotelopts').innerHTML=hotels.map(function(h,i){
       return '<label><input type="checkbox" class="hotelck" value="'+i+'"'+(i===best?' checked':'')+'> '+
         escHtml(h.name)+' <span class="cnt">('+h.count+' rows)</span></label>';
     }).join('');
     S.hotelList=hotels;
-    updateScope();
-    document.querySelectorAll('.hotelck').forEach(function(ck){ ck.addEventListener('change',updateScope); });
+    document.querySelectorAll('.hotelck').forEach(function(ck){ ck.addEventListener('change',refreshCompareState); });
+    refreshCompareState();
   }
   function selectedHotelCanons(){
     var sel=[];
     document.querySelectorAll('.hotelck:checked').forEach(function(ck){ sel.push(S.hotelList[+ck.value].canon); });
     return sel;
   }
-  function updateScope(){
-    var canons=selectedHotelCanons();
-    var n=S.master.rows.filter(function(r){ return canons.indexOf(r.hotel)>=0; }).length;
-    $('cmp-scope').textContent = canons.length
-      ? n+' master rows will be compared against '+S.hotel.rows.length+' hotel-sheet rows.'
-      : 'Select at least one hotel above.';
+
+  /* The compare button is only enabled when a comparison can actually run —
+     and the caption always says why when it can't. No silent dead clicks.  */
+  function refreshCompareState(){
+    var btn=$('btn-compare'), reason='';
+    if(!S.master||!S.hotel) reason='Load both files in step 1 first.';
+    else if(!S.master.rows.length) reason='The master file has no readable booking rows — pick a different sheet tab above.';
+    else if(!S.hotel.rows.length) reason='The hotel file has no readable booking rows — pick a different sheet tab above.';
+    else if(!selectedHotelCanons().length) reason='Tick at least one hotel above to enable comparison.';
+    btn.disabled=!!reason;
+    if(reason){
+      $('cmp-scope').textContent=reason;
+    }else{
+      var canons=selectedHotelCanons();
+      var n=S.master.rows.filter(function(r){ return canons.indexOf(r.hotel)>=0; }).length;
+      $('cmp-scope').textContent=n+' master rows will be compared against '+S.hotel.rows.length+' hotel-sheet rows.';
+    }
   }
 
   /* ------- compare ------- */
   $('btn-compare').addEventListener('click',function(){
+    try{ doCompare(); }
+    catch(err){ fatal('Comparing failed:\n'+(err&&err.stack||err)); }
+  });
+  function doCompare(){
     var canons=selectedHotelCanons();
-    if(!canons.length){ updateScope(); return; }
+    if(!canons.length){ refreshCompareState(); return; }
     var masterRows=S.master.rows.filter(function(r){ return canons.indexOf(r.hotel)>=0; });
     var res=matchRows(masterRows,S.hotel.rows);
     var updates=[],unchanged=[];
@@ -906,13 +1109,18 @@ if(typeof module!=='undefined'&&module.exports){
               cancels:res.cancelledHotel.map(function(h){return {h:h,ck:false};})};
     buildEntries();
     renderReview();
-    $('step3').classList.remove('hidden');
-    $('step4').classList.add('hidden');
+    showCard('step3');
+    hideCard('step4');
     $('actionbar').classList.add('show');
     $('step3').scrollIntoView({behavior:'smooth'});
-  });
+    var t=totalProposals();
+    toast(t===0?'Sheets are in sync — nothing to change':t+' proposed change'+(t!==1?'s':'')+' to review');
+  }
 
   /* ------- grid entries model ------- */
+  function searchText(rec){
+    return (rec.names.join(' ')+' '+rec.disp.join(' ')).toLowerCase();
+  }
   function buildEntries(){
     var R=S.result, entries=[];
     R.updates.forEach(function(u){ entries.push({kind:'update',u:u,h:u.h,m:u.m,order:u.h.srcRow}); });
@@ -920,6 +1128,9 @@ if(typeof module!=='undefined'&&module.exports){
     R.cancels.forEach(function(c){ entries.push({kind:'cancel',c:c,h:c.h,order:c.h.srcRow}); });
     entries.sort(function(a,b){ return a.order-b.order; });
     R.news.forEach(function(n){ entries.push({kind:'new',n:n,m:n.m,order:1e9}); });
+    entries.forEach(function(e){
+      e.search=(e.h?searchText(e.h):'')+(e.m?' '+searchText(e.m):'');
+    });
     S.entries=entries;
   }
 
@@ -982,7 +1193,7 @@ if(typeof module!=='undefined'&&module.exports){
       chip(C_NAME, sn+' name', sna, sn)+
       chip(C_NEW, R.news.length+' new', na, R.news.length)+
       chip(C_CANCEL, R.cancels.length+' possible cancellation'+(R.cancels.length!==1?'s':''), ca, R.cancels.length)+
-      '<span class="chip"><span class="dot" style="background:#3a3f45"></span>'+R.unchanged.length+' unchanged</span>';
+      '<span class="chip"><span class="dot" style="background:#3f3a3a"></span>'+R.unchanged.length+' unchanged</span>';
     var c=approvedCounts();
     $('approve-count').innerHTML='<b>'+c.approved+'</b> of '+c.total+' proposed changes approved';
   }
@@ -997,19 +1208,17 @@ if(typeof module!=='undefined'&&module.exports){
     S.entries.forEach(function(e,ei){
       var unch=e.kind==='unchanged';
       var dimCls=unch?' dim':'';
-      var unchCls=unch?' unch':'';
       if(e.kind==='update'||unch){
-        var marks={};                        /* col -> item idx (hotel row) */
-        var srcMarks={};                     /* col -> item idx (master row) */
+        var marks={}, srcMarks={};
         if(e.kind==='update') e.u.items.forEach(function(it,ii){
           marks[it.col]=ii; srcMarks[it.col]=ii;
           if(it.sub==='add'&&it.confCol!=null){ marks[it.confCol]=ii; }
         });
         var mrow=masterAs16(e.m);
-        h.push('<tr class="rmaster grp-first'+dimCls+unchCls+'"><td class="lbl"><span class="rowtag master">Master</span></td>');
+        h.push('<tr data-grp="'+ei+'" class="rmaster grp-first'+dimCls+'"><td class="lbl"><span class="rowtag master">Master</span></td>');
         for(var c=0;c<16;c++){
           var ii=srcMarks[c];
-          if(ii!=null && c<12 || ii!=null && c===15){
+          if(ii!=null && (c<12 || c===15)){
             var it=e.u.items[ii];
             h.push('<td class="d-src '+catClass(it)+'" data-ei="'+ei+'" data-ii="'+ii+'" tabindex="0" '+
                    'aria-label="'+escHtml(it.label+': '+(it.oldText||'blank')+' to '+(it.newText||'removed'))+'">'+
@@ -1017,13 +1226,13 @@ if(typeof module!=='undefined'&&module.exports){
           } else h.push('<td>'+escHtml(mrow[c])+'</td>');
         }
         h.push('</tr>');
-        h.push('<tr class="'+dimCls.trim()+unchCls+'"><td class="lbl"><span class="rowtag hotel">Hotel · r'+(e.h.srcRow+1)+'</span></td>');
+        h.push('<tr data-grp="'+ei+'" class="'+dimCls.trim()+'"><td class="lbl"><span class="rowtag hotel">Hotel · r'+(e.h.srcRow+1)+'</span></td>');
         for(var c2=0;c2<16;c2++){
           var ii2=marks[c2];
           if(ii2!=null){
             var it2=e.u.items[ii2];
             var appr=it2.ck?' appr':'';
-            var shown=it2.ck ? (c2===it2.confCol?'NEW':it2.newText) : e.h.disp[c2];
+            var shown=it2.ck ? (c2===it2.confCol?'NEW':it2.newText) : (e.h.disp[c2]||'');
             if(it2.ck&&it2.sub==='remove') shown='';
             h.push('<td class="d '+catClass(it2)+appr+'" data-ei="'+ei+'" data-ii="'+ii2+'" tabindex="0" role="button" '+
                    'aria-pressed="'+(!!it2.ck)+'" aria-label="'+escHtml(it2.label+': '+(it2.oldText||'blank')+' to '+(it2.newText||'removed'))+'">'+
@@ -1035,7 +1244,7 @@ if(typeof module!=='undefined'&&module.exports){
       if(e.kind==='new'){
         var nr=masterAs16(e.m);
         var apprN=e.n.ck?' appr':'';
-        h.push('<tr class="grp-first"><td class="lbl"><span class="rowtag newtag">New</span></td>');
+        h.push('<tr data-grp="'+ei+'" class="grp-first"><td class="lbl"><span class="rowtag newtag">New</span></td>');
         for(var c3=0;c3<16;c3++){
           var txt=nr[c3];
           if(e.n.ck && c3>=12 && c3<=14 && e.m.nameKeys[c3-12]) txt='NEW';
@@ -1047,7 +1256,7 @@ if(typeof module!=='undefined'&&module.exports){
       }
       if(e.kind==='cancel'){
         var apprC=e.c.ck?' appr':'';
-        h.push('<tr class="grp-first"><td class="lbl"><span class="rowtag cantag">Cancel?</span></td>');
+        h.push('<tr data-grp="'+ei+'" class="grp-first"><td class="lbl"><span class="rowtag cantag">Cancel?</span></td>');
         for(var c4=0;c4<16;c4++){
           h.push('<td class="d c-cancel'+apprC+'" data-ei="'+ei+'" tabindex="'+(c4===0?'0':'-1')+'" role="button" '+
                  'aria-pressed="'+(!!e.c.ck)+'">'+escHtml(e.h.disp[c4]||'')+
@@ -1058,14 +1267,24 @@ if(typeof module!=='undefined'&&module.exports){
     });
     h.push('</tbody></table>');
     $('gridwrap').innerHTML=h.join('');
-    applyUnchVisibility();
+    applyRowVisibility();
   }
-  function applyUnchVisibility(){
-    var show=$('show-unch').checked;
-    document.querySelectorAll('#gridwrap tr.unch').forEach(function(tr){
-      tr.style.display=show?'':'none';
+
+  /* one place decides row visibility: search filter + show-unchanged toggle */
+  function applyRowVisibility(){
+    var q=($('search').value||'').toLowerCase().trim();
+    var showU=$('show-unch').checked;
+    document.querySelectorAll('#gridwrap tr[data-grp]').forEach(function(tr){
+      var e=S.entries[+tr.dataset.grp];
+      var vis=(showU||e.kind!=='unchanged') && (!q||e.search.indexOf(q)>=0);
+      tr.style.display=vis?'':'none';
+    });
+    document.querySelectorAll('#groups .booking[data-search]').forEach(function(b){
+      b.style.display=(!q||b.getAttribute('data-search').indexOf(q)>=0)?'':'none';
     });
   }
+  $('search').addEventListener('input',applyRowVisibility);
+  $('show-unch').addEventListener('change',applyRowVisibility);
 
   /* ------- render: card view ------- */
   function renderCards(){
@@ -1075,7 +1294,8 @@ if(typeof module!=='undefined'&&module.exports){
         '<button class="small" data-act="all-upd">Approve all</button>'+
         '<button class="small" data-act="none-upd">Clear</button></h3>';
       R.updates.forEach(function(u,ui){
-        html+='<div class="booking"><div class="who">'+escHtml(crewLine(u.h))+'</div>'+
+        html+='<div class="booking" data-search="'+escHtml(searchText(u.h)+' '+searchText(u.m))+'">'+
+          '<div class="who">'+escHtml(crewLine(u.h))+'</div>'+
           '<div class="meta">Hotel sheet row '+(u.h.srcRow+1)+' &nbsp;·&nbsp; '+stayLine(u.h)+
           ' &nbsp;·&nbsp; matched: '+escHtml(u.why)+'</div>'+
           '<table class="diff"><tr><th style="width:26px"></th><th>Field</th><th>Hotel sheet (current)</th><th>Master (new)</th></tr>';
@@ -1100,7 +1320,8 @@ if(typeof module!=='undefined'&&module.exports){
         '<div class="cnt" style="margin:-4px 0 10px">On the master sheet but not on the hotel sheet. '+
         'Approved rows are added at the bottom, highlighted green, confirmation marked <b>NEW</b>.</div>';
       R.news.forEach(function(n,ni){
-        html+='<div class="booking"><label class="cklabel"><input type="checkbox" data-new="'+ni+'"'+
+        html+='<div class="booking" data-search="'+escHtml(searchText(n.m))+'">'+
+          '<label class="cklabel"><input type="checkbox" data-new="'+ni+'"'+
           (n.ck?' checked':'')+'> Add booking — <span class="who">'+escHtml(crewLine(n.m))+'</span></label>'+
           '<div class="meta">'+stayLine(n.m)+'</div></div>';
       });
@@ -1115,7 +1336,8 @@ if(typeof module!=='undefined'&&module.exports){
         'here even though their bookings are fine. <b>Only approve rows you are sure should be cancelled.</b> '+
         'Unapproved rows are left exactly as they are.</div>';
       R.cancels.forEach(function(cn,ci){
-        html+='<div class="booking"><label class="cklabel"><input type="checkbox" data-can="'+ci+'"'+
+        html+='<div class="booking" data-search="'+escHtml(searchText(cn.h))+'">'+
+          '<label class="cklabel"><input type="checkbox" data-can="'+ci+'"'+
           (cn.ck?' checked':'')+'> Cancel — <span class="who">'+escHtml(crewLine(cn.h))+'</span></label>'+
           '<div class="meta">Hotel sheet row '+(cn.h.srcRow+1)+' &nbsp;·&nbsp; '+stayLine(cn.h)+
           ' &nbsp;·&nbsp; conf: '+escHtml((cn.h.disp[12]||'')+((cn.h.disp[13])?', '+cn.h.disp[13]:'')+((cn.h.disp[14])?', '+cn.h.disp[14]:''))+'</div></div>';
@@ -1144,7 +1366,6 @@ if(typeof module!=='undefined'&&module.exports){
   }
   $('view-grid').addEventListener('click',function(){ S.view='grid'; applyView(); });
   $('view-cards').addEventListener('click',function(){ S.view='cards'; applyView(); });
-  $('show-unch').addEventListener('change',applyUnchVisibility);
 
   /* ------- approval state changes ------- */
   function afterToggle(focusKey){
@@ -1155,7 +1376,7 @@ if(typeof module!=='undefined'&&module.exports){
     if(focusKey){
       var el=document.querySelector('#gridwrap [data-ei="'+focusKey[0]+'"]'+
             (focusKey[1]!=null?'[data-ii="'+focusKey[1]+'"]':'')+'[class*="d"]');
-      if(el) el.focus();
+      if(el) el.focus({preventScroll:true});
     }
   }
   function toggleEntryItem(ei,ii){
@@ -1174,6 +1395,7 @@ if(typeof module!=='undefined'&&module.exports){
     R.news.forEach(function(n){n.ck=val;});
     R.cancels.forEach(function(c){c.ck=val;});
     afterToggle(null);
+    toast(val?'All changes approved':'All approvals cleared');
   }
   $('btn-all').addEventListener('click',function(){ setAll(true); });
   $('btn-none').addEventListener('click',function(){ setAll(false); });
@@ -1288,9 +1510,11 @@ if(typeof module!=='undefined'&&module.exports){
 
   /* ------- build & copy ------- */
   $('btn-build').addEventListener('click',function(){
-    buildPreview();
-    $('step4').classList.remove('hidden');
-    $('step4').scrollIntoView({behavior:'smooth'});
+    try{
+      buildPreview();
+      showCard('step4');
+      $('step4').scrollIntoView({behavior:'smooth'});
+    }catch(err){ fatal('Building the page failed:\n'+(err&&err.stack||err)); }
   });
 
   function buildPreview(){
@@ -1325,10 +1549,16 @@ if(typeof module!=='undefined'&&module.exports){
   $('btn-copy').addEventListener('click',function(){
     if(!S.output) return;
     var html=outputToClipboardHtml(S.output), tsv=outputToTsv(S.output);
+    var btn=$('btn-copy');
     function done(ok){
-      $('copymsg').textContent= ok
-        ? '✓ Copied! Paste into cell A1 of the new "'+tabName()+'" tab.'
-        : 'Copy failed — select the preview table below and press Ctrl+C instead.';
+      if(ok){
+        btn.classList.add('copied'); btn.textContent='Copied ✓';
+        setTimeout(function(){ btn.classList.remove('copied'); btn.textContent='Copy page to clipboard'; },2200);
+        $('copymsg').textContent='Paste into cell A1 of the new "'+tabName()+'" tab.';
+        toast('Page copied — paste into Excel with Ctrl+V');
+      }else{
+        $('copymsg').textContent='Copy failed — select the preview table below and press Ctrl+C instead.';
+      }
     }
     if(navigator.clipboard && window.ClipboardItem){
       navigator.clipboard.write([new ClipboardItem({
@@ -1347,6 +1577,9 @@ if(typeof module!=='undefined'&&module.exports){
       done(ok);
     }catch(e){ done(false); }
   }
+
+  refreshStepper();
+  refreshCompareState();
 })();
 </script>
 </body>

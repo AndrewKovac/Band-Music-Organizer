@@ -42,6 +42,16 @@ network access, so crew names and stay dates never leave the machine.
    Values, highlights and strikethrough paste together. No new Excel file is
    ever created.
 
+## If something looks wrong
+
+Nothing in the tool fails silently. The **Compare** button stays disabled — with the
+reason written next to it — until both files are loaded, rows were readable, and a
+hotel is ticked. Any unexpected error appears as a red diagnostic banner at the top
+of the page: screenshot it and report it. Each loaded file also has a **"Preview
+parsed rows"** panel, so you can check the tool read your columns the way you expect
+before comparing. Very large sheets are capped at the first 5,000 rows (with a
+warning) so a stray formatted range can never freeze the page.
+
 ## How rows are matched
 
 Bookings are matched the way a scheduler thinks ("who is operating 941 on the
