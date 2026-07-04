@@ -20,8 +20,15 @@ network access, so crew names and stay dates never leave the machine.
    pre-selects the matching hotel in the master. Tick more than one if the master
    spells the hotel two ways. Set your initials and shift letter once; they are
    remembered.
-3. **Review** — every proposed change starts **unapproved**. Approve items
-   individually or per-section:
+3. **Review** — every proposed change starts **unapproved**, in either of two views:
+   - **Side-by-side** (default): each booking shows its master row directly above its
+     hotel row in one spreadsheet-style grid, with differing cells outlined. Hover an
+     outlined cell for a tooltip showing old → new and the match reason, and click the
+     cell (or the tooltip button, or press Enter) to approve. Approved cells fill with
+     their Excel colour so the grid previews the final page as you work.
+   - **Change list**: the same proposals as a compact checklist with per-section
+     "Approve all" buttons — for when the tool has earned enough trust.
+   Both views share one approval state; switch freely. Colour coding:
    - Schedule / flight / pairing changes → highlighted `#ffff00`
    - Name changes → highlighted `#a6c9ec` (confirmation numbers are never moved
      or edited — a replacement name goes into the same slot)
@@ -45,6 +52,13 @@ reason in the review screen. Dates (`25JUL`, `7/25/26`, real Excel dates), times
 (`1400`, `14:00`, `2:00 PM`, Excel times) and flight numbers (`AB 0941` = `AB941`)
 are normalised before comparing, so formatting differences between the two files
 don't produce false changes.
+
+## Branding
+
+The interface uses the Cargojet palette — main `#060000`, accent `#fedc2e`
+(assumed from the provided "edc2e"), header `#5e6368`, text `#858585` — with a
+vector recreation of the wordmark (the sandbox this was built in cannot download
+the official PNG; swap it in later if pixel-perfect branding is needed).
 
 Excel parsing by [SheetJS Community Edition](https://sheetjs.com) (Apache-2.0),
 embedded in the file.
