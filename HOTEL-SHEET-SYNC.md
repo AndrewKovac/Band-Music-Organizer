@@ -54,14 +54,27 @@ warning) so a stray formatted range can never freeze the page.
 
 ## The master's date window
 
-The master sheet only speaks for the period it covers. The tool takes the earliest
-and latest check-in dates on the master (shown next to the Compare button, e.g.
-"Master covers 04JUL–10JUL") and treats any hotel booking that checks in outside
-that window as **out of scope**: it is never matched, never proposed as a
-cancellation, and passes through to the new page completely untouched. These rows
-appear dimmed with an "Out of range" tag and their own summary chip, so a hotel
-sheet that looks weeks further ahead than the master can't generate a wall of
-false cancellations. Year-end windows (e.g. 28DEC–03JAN) are handled correctly.
+The master sheet only speaks for the period it covers. Step 2 has a **Master date
+range** control: auto-filled from the master's earliest and latest check-in dates,
+and editable if the auto-detect gets it wrong (accepts `04JUL`, `04JUL26`, `4/7/26`
+or a bare day number like `4`; leave a side blank for an open end). Any hotel
+booking that checks in outside the range is **out of scope**: never matched, never
+proposed as a cancellation, passed through to the new page untouched, and shown
+dimmed with an "Out of range" tag and its own summary chip. Year-end windows
+(28DEC–03JAN) are handled correctly, and masters whose date column is just a day
+number ("4", "7") are understood.
+
+## Other behaviours worth knowing
+
+- **Chronological order**: approved new bookings are inserted into the page by
+  check-in date, not appended at the bottom.
+- **Paste geometry**: the copied page carries the standard column widths
+  (A 127px · B–F 96 · G–H 103 · I–J 170 · K 56 · L 162 · M–P 96) plus
+  left-justified, vertically-centred, wrap-on formatting for every cell — paste
+  and it looks right with no manual formatting.
+- **Pairing codes**: a pairing-only change can be approved as *replace* or as
+  *keep both* ("ABCD, DCBA") — hover the cell for both options, or use the
+  dropdown in the change list. Pairing codes are never used to match rows.
 
 ## How rows are matched
 

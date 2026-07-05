@@ -165,27 +165,49 @@
             cursor:pointer;white-space:nowrap;}
   #search{min-width:210px;}
 
-  /* ---------- grid (side-by-side) view ---------- */
-  #gridwrap{overflow:auto;max-height:62vh;border:1px solid var(--line);border-radius:var(--r);
-            background:var(--inset);}
-  table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;white-space:nowrap;min-width:100%;}
-  table.grid th{position:sticky;top:0;z-index:3;background:#171111;color:var(--head);
-                font-weight:600;font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;
-                padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);}
-  table.grid th.lbl{left:0;z-index:4;}
-  table.grid td{padding:6px 10px;border-bottom:1px solid var(--line-soft);color:var(--text);
-                max-width:230px;overflow:hidden;text-overflow:ellipsis;}
-  table.grid td.lbl{position:sticky;left:0;z-index:2;background:var(--inset);
-                    border-right:1px solid var(--line);padding:6px 12px;}
+  /* ---------- meta chips (icon summary of a stay) ---------- */
+  .mchips{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .mchip{display:inline-flex;align-items:center;gap:5px;background:#241c1c;border:1px solid var(--line);
+         border-radius:6px;padding:2px 9px;font-size:11.5px;color:var(--text);white-space:nowrap;}
+  .mchip svg{opacity:.6;flex:none;}
+  .mchip.mrow{background:rgba(94,99,104,.16);color:#aab0b6;font-weight:600;}
+  .mlab{font-size:9.5px;letter-spacing:.8px;color:var(--head);font-weight:800;
+        text-transform:uppercase;margin-left:5px;}
+
+  /* ---------- side-by-side: one dashboard card per booking ---------- */
+  #gridwrap{overflow:auto;max-height:66vh;border:1px solid var(--line);border-radius:var(--r);
+            background:var(--inset);padding:12px;}
+  .gridhead{position:sticky;top:-12px;z-index:6;background:var(--inset);
+            margin:-12px -12px 10px;padding:12px 12px 0;border-bottom:1px solid var(--line);}
+  .bkt{border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:12.5px;}
+  .bkt th{color:var(--head);font-weight:600;font-size:10px;letter-spacing:.8px;
+          text-transform:uppercase;padding:7px 10px;text-align:left;overflow:hidden;
+          text-overflow:ellipsis;white-space:nowrap;}
+  .bkt td{padding:6px 10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;
+          white-space:nowrap;border-top:1px solid var(--line-soft);}
+  .bkt tr:first-child td{border-top:none;}
+  .bkt td.lbl,.bkt th.lbl{font-size:9.5px;letter-spacing:.9px;color:#6f6862;
+          text-transform:uppercase;font-weight:800;}
   tr.rmaster td{background:rgba(255,255,255,.022);}
-  tr.rmaster td.lbl{background:#151010;}
-  tr.grp-first td{border-top:10px solid var(--bg);}
-  tr.dim td{color:#5a544f;}
-  tr.dim td .rowtag{opacity:.55;}
+  .bk{border:1px solid var(--line);border-left:3px solid #3a3434;border-radius:10px;
+      margin-bottom:12px;background:var(--panel-2);width:max-content;min-width:100%;
+      overflow:hidden;transition:border-color .15s;}
+  .bk:hover{border-color:#463838;}
+  .bk.k-update{border-left-color:var(--sched);}
+  .bk.k-new{border-left-color:var(--new);}
+  .bk.k-cancel{border-left-color:var(--cancel);}
+  .bk.quiet{opacity:.55;}
+  .bk.quiet:hover{opacity:.85;}
+  .bk-head{display:flex;align-items:center;gap:10px;padding:9px 14px;flex-wrap:wrap;
+           border-bottom:1px solid var(--line-soft);background:rgba(255,255,255,.018);
+           position:sticky;left:0;max-width:calc(100vw - 140px);}
+  .bk-who{font-weight:600;color:var(--bright);font-size:13px;}
+  .bk-why{color:#6f6862;font-size:11.5px;}
+  .bk-state{font-size:11px;color:#ef8b95;font-weight:700;margin-left:auto;white-space:nowrap;}
   .rowtag{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;
-          letter-spacing:.8px;border-radius:4px;padding:2px 8px;text-transform:uppercase;}
-  .rowtag.master{background:rgba(201,44,58,.14);color:#ef8b95;border:1px solid rgba(201,44,58,.4);}
-  .rowtag.hotel{background:rgba(94,99,104,.18);color:#9aa0a6;border:1px solid rgba(94,99,104,.45);}
+          letter-spacing:.8px;border-radius:4px;padding:2px 8px;text-transform:uppercase;flex:none;}
+  .rowtag.chgtag{background:rgba(255,255,0,.1);color:#e6e67a;border:1px solid rgba(255,255,0,.3);}
+  .rowtag.unctag{background:rgba(94,99,104,.14);color:#8d939a;border:1px solid rgba(94,99,104,.35);}
   .rowtag.newtag{background:rgba(181,230,162,.14);color:var(--new);border:1px solid rgba(181,230,162,.4);}
   .rowtag.cantag{background:rgba(255,0,0,.14);color:#ff7a7a;border:1px solid rgba(255,0,0,.4);}
   .rowtag.outtag{background:rgba(94,99,104,.14);color:#7d848b;border:1px solid rgba(94,99,104,.35);}
@@ -222,6 +244,7 @@
   #tip .t-note{color:var(--muted);font-size:12px;margin:-4px 0 10px;line-height:1.5;}
   #tip .t-warnnote{color:#e8b0b0;font-size:12px;margin:-4px 0 10px;line-height:1.5;}
   #tip button{width:100%;padding:7px 12px;font-size:12.5px;}
+  #tip button+button{margin-top:6px;}
   #tip button.undo{background:transparent;border-color:#4a3c3c;box-shadow:none;}
 
   /* ---------- card view ---------- */
@@ -233,12 +256,14 @@
            margin-bottom:10px;background:var(--panel-2);transition:border-color .15s;}
   .booking:hover{border-color:#4a3a3a;}
   .booking .who{font-weight:600;color:var(--bright);}
-  .booking .meta{color:var(--muted);font-size:12px;margin:3px 0 10px;}
+  .booking .bhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px;}
+  .booking .bwhy{color:#6f6862;font-size:11px;}
   table.diff{border-collapse:collapse;width:100%;font-size:13px;}
   table.diff th{color:var(--head);font-weight:600;text-align:left;padding:4px 10px;
                 border-bottom:1px solid var(--line);font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;}
   table.diff td{padding:6px 10px;border-bottom:1px solid var(--line-soft);vertical-align:top;}
   table.diff tr:last-child td{border-bottom:none;}
+  table.diff select{padding:2px 6px;font-size:12px;margin-left:8px;}
   .old{color:#c98484;text-decoration:line-through;}
   .new{font-weight:600;color:var(--bright);}
   .tag{display:inline-block;border-radius:4px;padding:0 7px;font-size:10px;font-weight:800;
@@ -259,11 +284,12 @@
   /* ---------- output ---------- */
   #previewbox{overflow:auto;max-height:520px;border:1px solid var(--line);border-radius:var(--r);
               margin:14px 0 4px;background:#fff;}
-  #previewbox table{border-collapse:collapse;font-size:12px;white-space:nowrap;
+  #previewbox table{border-collapse:collapse;font-size:12px;table-layout:fixed;
                     font-family:Calibri,"Segoe UI",Arial,sans-serif;color:#111;}
-  #previewbox td,#previewbox th{border:1px solid #d4d4d8;padding:3px 8px;background:#fff;}
+  #previewbox td,#previewbox th{border:1px solid #d4d4d8;padding:3px 8px;background:#fff;
+                    text-align:left;vertical-align:middle;white-space:normal;word-wrap:break-word;}
   #previewbox th{background:#f1f1f4 !important;color:#555;position:sticky;top:0;z-index:2;
-                 font-weight:600;font-size:11px;}
+                 font-weight:600;font-size:11px;white-space:nowrap;}
   .steps-inline{margin:14px 0 0;padding-left:20px;font-size:13px;color:var(--text);}
   .steps-inline li{margin:5px 0;}
   .steps-inline b{color:var(--bright);}
@@ -354,6 +380,13 @@
     <div id="hoteldetect" class="cnt" style="margin-bottom:8px;"></div>
     <div class="hotelopts" id="hotelopts"></div>
     <div class="row" style="margin-top:16px;">
+      <label class="cnt">Master date range&nbsp;
+        <input type="text" id="win-from" size="8" placeholder="04JUL" aria-label="Range start"></label>
+      <span class="cnt">–</span>
+      <label class="cnt"><input type="text" id="win-to" size="8" placeholder="10JUL" aria-label="Range end"></label>
+      <span class="cnt" id="win-note" aria-live="polite"></span>
+    </div>
+    <div class="row" style="margin-top:14px;">
       <label class="cnt">Your initials&nbsp; <input type="text" id="initials" size="4" maxlength="4"></label>
       <label class="cnt">Shift letter&nbsp; <input type="text" id="suffix" size="2" maxlength="2" title="e.g. N for night"></label>
       <span class="cnt">New page will be named &nbsp;<span class="tabname" id="tabname-preview"></span></span>
@@ -381,8 +414,9 @@
     </div>
     <div id="nochanges" class="okmsg hidden"></div>
     <div id="gridpane">
-      <div class="cnt" style="margin:0 0 8px">Master row on top, hotel row beneath. Outlined cells differ —
-        hover for details, click (or press Enter) to approve. Approved cells fill with their Excel colour.</div>
+      <div class="cnt" style="margin:0 0 8px">One card per booking — master row above, hotel row beneath.
+        Outlined cells differ: hover for details, click (or press Enter) to approve. Approved cells fill
+        with their Excel colour.</div>
       <div id="gridwrap"></div>
     </div>
     <div id="cardpane" class="hidden">
@@ -401,7 +435,8 @@
     <ol class="steps-inline">
       <li>Open the hotel workbook in Excel and add a new sheet (the <b>+</b> next to the tab names).</li>
       <li>Rename the new tab to the page name shown above.</li>
-      <li>Click cell <b>A1</b> and press <b>Ctrl+V</b> — values, highlights and strikethrough paste together.</li>
+      <li>Click cell <b>A1</b> and press <b>Ctrl+V</b> — values, highlights, strikethrough, column widths
+          and wrap/alignment all paste together.</li>
     </ol>
     <div id="previewbox"></div>
   </div>
@@ -409,7 +444,7 @@
   <footer>
     Hotel Sheet Sync runs entirely inside this one file, in your browser — it never uploads, saves or
     transmits anything, and works with the network disconnected. Refreshing the page clears all loaded data.<br>
-    Cargojet Crew Travel internal tool · v1.3 · Excel parsing by SheetJS Community Edition (Apache-2.0).
+    Cargojet Crew Travel internal tool · v1.4 · Excel parsing by SheetJS Community Edition (Apache-2.0).
   </footer>
 </div>
 
@@ -460,6 +495,8 @@ var HOTEL_HEADERS=['Hotel Name','Hotel Location','Check in Time','Check in Date'
   'Confirmation 1','Confirmation 2','Confirmation 3','Notes'];
 var MONTHS3={JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
 var MONTH_NAMES=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+/* Excel paste geometry (px): A=127 · B–F=96 · G–H=103 · I–J=170 · K=56 · L=162 · M–P=96 */
+var COL_PX=[127,96,96,96,96,96,103,103,170,170,56,162,96,96,96,96];
 
 function normWS(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim(); }
 function canonText(s){ return normWS(s).toUpperCase(); }
@@ -503,11 +540,15 @@ function serialToISO(n){
   return isoParts(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
 }
 
+/* Canonical date forms: '2026-07-25' · '0000-07-25' (no year) · 'D:25' (day
+   of month only — real masters often show dates as a bare day number).    */
 function parseDateText(s){
   s=canonText(s);
   if(!s) return '';
   var m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if(m) return isoParts(m[1],m[2],m[3]);
+  m=s.match(/^(\d{1,2})(?:ST|ND|RD|TH)?$/);
+  if(m && +m[1]>=1 && +m[1]<=31) return 'D:'+pad2(+m[1]);
   /* 25JUL / 25JUL26 / 25-JUL-2026 / 25 JUL, 2026 */
   m=s.match(/^(\d{1,2})[ \-\/]?([A-Z]{3,9})\.?[ \-\/,]*(\d{2,4})?$/);
   if(m && MONTHS3[m[2].slice(0,3)]) return isoParts(yearOf(m[3]),MONTHS3[m[2].slice(0,3)],m[1]);
@@ -533,14 +574,40 @@ function canonDate(cell){
   return parseDateText(dispOf(cell));
 }
 
-/* Dates compare equal if same day+month and either side lacks a year. */
+function dayOf(c){
+  if(!c) return null;
+  if(c.slice(0,2)==='D:') return +c.slice(2);
+  if(c.slice(0,4)==='TXT:') return null;
+  return +c.slice(8,10);
+}
+
+/* Dates compare equal across granularities: full vs yearless vs day-only. */
 function dateEq(a,b){
   if(a===b) return a!=='';
   if(!a||!b) return false;
   if(a.slice(0,4)==='TXT:'||b.slice(0,4)==='TXT:') return false;
+  if(a.slice(0,2)==='D:'||b.slice(0,2)==='D:'){
+    var da=dayOf(a), db=dayOf(b);
+    return da!=null && db!=null && da===db;
+  }
   var pa=a.split('-'), pb=b.split('-');
   if(pa[0]==='0000'||pb[0]==='0000') return pa[1]===pb[1]&&pa[2]===pb[2];
   return false;
+}
+
+/* Ordering comparator; null when the two forms can't be ordered. */
+function dateCmp(a,b){
+  if(!a||!b||a.slice(0,4)==='TXT:'||b.slice(0,4)==='TXT:') return null;
+  if(a.slice(0,2)==='D:'||b.slice(0,2)==='D:'){
+    var da=dayOf(a), db=dayOf(b);
+    if(da==null||db==null) return null;
+    return da-db;
+  }
+  if(a.slice(0,4)==='0000'||b.slice(0,4)==='0000'){
+    var xa=a.slice(5), xb=b.slice(5);
+    return xa<xb?-1:xa>xb?1:0;
+  }
+  return a<b?-1:a>b?1:0;
 }
 
 function hm(h,mi){ return pad2(h%24)+':'+pad2(mi); }
@@ -694,6 +761,11 @@ var SCHED_FIELDS=[
   {col:7,label:'Outbound flight',key:'outFlt'}
 ];
 
+/* “Keep both” text for a pairing-code change: existing code, then the new one. */
+function pairingBothText(oldT,newT){
+  return normWS(oldT) ? normWS(oldT)+', '+normWS(newT) : newT;
+}
+
 function diffPair(m,h){
   var items=[];
   SCHED_FIELDS.forEach(function(f){
@@ -729,11 +801,94 @@ function diffPair(m,h){
     }
   }
   if(m.pairing!=='' && m.pairing!==h.pairing)
-    items.push({col:11,label:'Pairing code',oldText:h.disp[11],newText:m.disp[11],cat:'schedule'});
+    items.push({col:11,label:'Pairing code',oldText:h.disp[11],newText:m.disp[11],cat:'schedule',
+                canBoth:normWS(h.disp[11])!=='',mode:'replace'});
   var mN=canonText(m.notes), hN=canonText(h.notes);
   if(mN!=='' && mN!==hN)
     items.push({col:15,label:'Notes',oldText:h.notes,newText:m.notes,cat:'schedule'});
   return items;
+}
+
+/* ---------- master date window ----------
+   The master only speaks for the period it covers. Hotel bookings that
+   check in outside the window are out of scope: never matched, never
+   proposed as cancellations. Auto-detected, but the user can edit it.  */
+function masterDateWindow(rows){
+  var full=[], md=[], days=[];
+  rows.forEach(function(r){
+    var d=r.ciDate;
+    if(!d || d.slice(0,4)==='TXT:') return;
+    if(d.slice(0,2)==='D:') days.push(d.slice(2));
+    else if(d.slice(0,4)==='0000') md.push(d.slice(5));
+    else full.push(d);
+  });
+  if(full.length){ full.sort(); return {md:false,min:full[0],max:full[full.length-1]}; }
+  if(md.length){ md.sort(); return {md:true,min:md[0],max:md[md.length-1]}; }
+  if(days.length){ days.sort(); return {day:true,min:days[0],max:days[days.length-1]}; }
+  return null;
+}
+
+/* Build a window from the two (possibly blank / possibly partial) inputs. */
+function windowFromInputs(f,t){
+  var ok=function(x){ return x && x.slice(0,4)!=='TXT:' ? x : null; };
+  f=ok(f); t=ok(t);
+  if(!f && !t) return null;
+  var isDay=function(x){ return x && x.slice(0,2)==='D:'; };
+  if(isDay(f)||isDay(t))
+    return {day:true, min:f?pad2(dayOf(f)):null, max:t?pad2(dayOf(t)):null};
+  var isMD=function(x){ return x && x.slice(0,4)==='0000'; };
+  if(isMD(f)||isMD(t))
+    return {md:true, min:f?f.slice(5):null, max:t?t.slice(5):null};
+  return {md:false, min:f, max:t};
+}
+
+function inWindow(win,ciDate){
+  if(!win) return true;
+  if(!ciDate || ciDate.slice(0,4)==='TXT:') return true;   /* unknown date -> human review */
+  if(win.day){
+    var d=dayOf(ciDate);
+    if(d==null) return true;
+    var mn=win.min?+win.min:null, mx=win.max?+win.max:null;
+    if(mn!=null&&mx!=null){ if(mn<=mx) return d>=mn&&d<=mx; return d>=mn||d<=mx; }
+    if(mn!=null) return d>=mn;
+    if(mx!=null) return d<=mx;
+    return true;
+  }
+  var mnMD=win.min?(win.md?win.min:win.min.slice(5)):null;
+  var mxMD=win.max?(win.md?win.max:win.max.slice(5)):null;
+  if(ciDate.slice(0,2)==='D:'){
+    /* day-only booking vs dated window: decidable only within one month */
+    var dn=dayOf(ciDate);
+    if(mnMD&&mxMD&&mnMD.slice(0,2)===mxMD.slice(0,2))
+      return dn>=+mnMD.slice(3) && dn<=+mxMD.slice(3);
+    return true;
+  }
+  if(win.md || ciDate.slice(0,4)==='0000'){
+    var d2=ciDate.slice(5);
+    if(mnMD&&mxMD){ if(mnMD<=mxMD) return d2>=mnMD&&d2<=mxMD; return d2>=mnMD||d2<=mxMD; }
+    if(mnMD) return d2>=mnMD;
+    if(mxMD) return d2<=mxMD;
+    return true;
+  }
+  if(win.min&&ciDate<win.min) return false;
+  if(win.max&&ciDate>win.max) return false;
+  return true;
+}
+
+function fmtISOday(iso){
+  var p=iso.split('-');
+  return p[2]+MONTH_NAMES[+p[1]-1];
+}
+function fmtWindow(win){
+  if(!win) return '';
+  if(win.day){
+    if(win.min&&win.max) return 'days '+win.min+'–'+win.max;
+    return win.min?'from day '+win.min:'until day '+win.max;
+  }
+  var needY=!win.md&&win.min&&win.max&&win.min.slice(0,4)!==win.max.slice(0,4);
+  var one=function(v){ return win.md?fmtISOday('0000-'+v):fmtISOday(v)+(needY?v.slice(2,4):''); };
+  if(win.min&&win.max) return one(win.min)+'–'+one(win.max);
+  return win.min?'from '+one(win.min):'until '+one(win.max);
 }
 
 /* ---------- output sheet model ---------- */
@@ -746,28 +901,52 @@ function newRowFromMaster(m){
   return row;
 }
 
-/* hotelGrid: raw grid.  updates: [{srcRow, items:[...]}]  cancels: [srcRow]  news: [masterRec] */
-function buildOutput(hotelGrid,updates,cancels,news){
-  var out=hotelGrid.map(function(g){
+/* Chronological placement: the sheet-grid row this new booking belongs before. */
+function insertionSrcRow(newRec,hotelRows){
+  var d=newRec.ciDate;
+  var list=hotelRows||[];
+  for(var i=0;i<list.length;i++){
+    var c=dateCmp(list[i].ciDate,d);
+    if(c!=null && c>0) return list[i].srcRow;
+  }
+  return Infinity;
+}
+
+/* hotelGrid: raw grid.  updates: [{srcRow, items:[...]}]  cancels: [srcRow]
+   news: [masterRec]  hotelRows: parsed rows (for chronological insertion)  */
+function buildOutput(hotelGrid,updates,cancels,news,hotelRows){
+  var base=hotelGrid.map(function(g){
     var row=[];
     for(var c=0;c<16;c++) row.push({text:dispOf((g||[])[c]),fill:null,strike:false});
     return row;
   });
   updates.forEach(function(u){
     u.items.forEach(function(it){
-      var cell=out[u.srcRow][it.col];
+      var cell=base[u.srcRow][it.col];
       cell.text=it.newText;
       cell.fill=(it.cat==='name')?C_NAME:C_SCHED;
       if(it.sub==='add' && it.confCol!=null){
-        out[u.srcRow][it.confCol].text='NEW';
-        out[u.srcRow][it.confCol].fill=C_NAME;
+        base[u.srcRow][it.confCol].text='NEW';
+        base[u.srcRow][it.confCol].fill=C_NAME;
       }
     });
   });
   cancels.forEach(function(sr){
-    out[sr].forEach(function(c){ c.fill=C_CANCEL; c.strike=true; });
+    base[sr].forEach(function(c){ c.fill=C_CANCEL; c.strike=true; });
   });
-  news.forEach(function(m){ out.push(newRowFromMaster(m)); });
+  var pend=news.map(function(m){
+    return {at:insertionSrcRow(m,hotelRows), d:m.ciDate, cells:newRowFromMaster(m)};
+  });
+  pend.sort(function(a,b){
+    if(a.at!==b.at){ if(a.at===Infinity) return 1; if(b.at===Infinity) return -1; return a.at-b.at; }
+    var c=dateCmp(a.d,b.d); return c==null?0:c;
+  });
+  var out=[];
+  for(var r=0;r<base.length;r++){
+    while(pend.length && pend[0].at<=r){ out.push(pend.shift().cells); }
+    out.push(base[r]);
+  }
+  pend.forEach(function(p){ out.push(p.cells); });
   return out;
 }
 
@@ -776,18 +955,21 @@ function escHtml(s){
         .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-/* HTML table for the clipboard — Excel keeps fills & strikethrough on paste.
-   Confirmation columns forced to text so leading zeros survive.            */
+/* HTML table for the clipboard — Excel keeps fills, strikethrough, column
+   widths, wrap and alignment on paste. Confirmation columns forced to text
+   so leading zeros survive.                                               */
 function outputToClipboardHtml(out){
-  var html=['<table>'];
+  var html=['<table><colgroup>'];
+  COL_PX.forEach(function(w){ html.push('<col width="'+w+'">'); });
+  html.push('</colgroup>');
   out.forEach(function(row){
     html.push('<tr>');
     row.forEach(function(cell,c){
-      var st=[];
+      var st=['text-align:left','vertical-align:middle','white-space:normal','word-wrap:break-word'];
       if(cell.fill) st.push('background:'+cell.fill);
       if(cell.strike) st.push('text-decoration:line-through');
       if(c>=12&&c<=14) st.push("mso-number-format:'\\@'");
-      html.push('<td'+(st.length?' style="'+st.join(';')+'"':'')+'>'+escHtml(cell.text)+'</td>');
+      html.push('<td width="'+COL_PX[c]+'" style="'+st.join(';')+'">'+escHtml(cell.text)+'</td>');
     });
     html.push('</tr>');
   });
@@ -803,45 +985,6 @@ function outputToTsv(out){
 function computeTabName(date,initials,suffix){
   return pad2(date.getDate())+MONTH_NAMES[date.getMonth()]+' '+
          canonText(initials).replace(/\s+/g,'')+canonText(suffix).replace(/\s+/g,'');
-}
-
-/* ---------- master date window ----------
-   The master only speaks for the period it covers. Hotel bookings that
-   check in outside [min,max] of the master's check-in dates are out of
-   scope: never matched, never proposed as cancellations.               */
-function masterDateWindow(rows){
-  var ds=rows.map(function(r){return r.ciDate;})
-             .filter(function(d){return d && d.slice(0,4)!=='TXT:';});
-  if(!ds.length) return null;
-  var yearless=ds.some(function(d){return d.slice(0,4)==='0000';});
-  if(yearless){
-    var mds=ds.map(function(d){return d.slice(5);}).sort();
-    return {md:true,min:mds[0],max:mds[mds.length-1]};
-  }
-  ds.sort();
-  return {md:false,min:ds[0],max:ds[ds.length-1]};
-}
-function inWindow(win,ciDate){
-  if(!win) return true;                                   /* no window known -> everything in scope */
-  if(!ciDate || ciDate.slice(0,4)==='TXT:') return true;  /* unknown date -> keep for human review  */
-  if(win.md || ciDate.slice(0,4)==='0000'){
-    var md=ciDate.slice(5);
-    var mn=win.md?win.min:win.min.slice(5), mx=win.md?win.max:win.max.slice(5);
-    if(mn<=mx) return md>=mn && md<=mx;
-    return md>=mn || md<=mx;                              /* window wraps the new year */
-  }
-  return ciDate>=win.min && ciDate<=win.max;
-}
-function fmtISOday(iso){
-  var p=iso.split('-');
-  return p[2]+MONTH_NAMES[+p[1]-1];
-}
-function fmtWindow(win){
-  if(!win) return '';
-  if(win.md) return fmtISOday('0000-'+win.min)+'–'+fmtISOday('0000-'+win.max);
-  var s=fmtISOday(win.min), e=fmtISOday(win.max);
-  if(win.min.slice(0,4)!==win.max.slice(0,4)){ s+=win.min.slice(2,4); e+=win.max.slice(2,4); }
-  return s+'–'+e;
 }
 
 /* hotel-name filtering: master holds every hotel */
@@ -874,7 +1017,9 @@ if(typeof module!=='undefined'&&module.exports){
     outputToTsv:outputToTsv,computeTabName:computeTabName,distinctHotels:distinctHotels,
     hotelSimilarity:hotelSimilarity,dominantHotelName:dominantHotelName,dispOf:dispOf,
     isHeaderGridRow:isHeaderGridRow,nameSetKey:nameSetKey,
-    masterDateWindow:masterDateWindow,inWindow:inWindow,fmtWindow:fmtWindow};
+    masterDateWindow:masterDateWindow,inWindow:inWindow,fmtWindow:fmtWindow,
+    windowFromInputs:windowFromInputs,dateCmp:dateCmp,dayOf:dayOf,
+    insertionSrcRow:insertionSrcRow,pairingBothText:pairingBothText};
 }
 </script>
 
@@ -885,6 +1030,27 @@ if(typeof module!=='undefined'&&module.exports){
   var S={ master:null, hotel:null, result:null, entries:null, output:null, view:'grid' };
   var GRID_HEADS=['Hotel','Location','C/I time','C/I date','In flight','C/O time','C/O date',
                   'Out flight','Name 1','Name 2','Name 3','Pairing','Conf 1','Conf 2','Conf 3','Notes'];
+  var GRID_PX=[96,150,105,66,72,76,66,72,76,150,150,150,96,105,105,105,150];
+  var GRID_W=GRID_PX.reduce(function(a,b){return a+b;},0);
+  function colgroupHtml(){
+    var h='<colgroup>';
+    GRID_PX.forEach(function(w){ h+='<col style="width:'+w+'px">'; });
+    return h+'</colgroup>';
+  }
+
+  var ICO_CAL='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>';
+  var ICO_PLANE='<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>';
+  var ICO_CLOCK='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  function chipIf(ico,val){ return val?'<span class="mchip">'+ico+escHtml(val)+'</span>':''; }
+  function metaChips(rec,rowNum){
+    var h='';
+    if(rowNum!=null) h+='<span class="mchip mrow">Row '+rowNum+'</span>';
+    var inn=chipIf(ICO_CAL,rec.disp[3])+chipIf(ICO_CLOCK,rec.disp[2])+chipIf(ICO_PLANE,rec.disp[4]);
+    var out=chipIf(ICO_CAL,rec.disp[6])+chipIf(ICO_CLOCK,rec.disp[5])+chipIf(ICO_PLANE,rec.disp[7]);
+    if(inn) h+='<span class="mlab">In</span>'+inn;
+    if(out) h+='<span class="mlab">Out</span>'+out;
+    return '<span class="mchips">'+h+'</span>';
+  }
 
   /* ------- diagnostics: no failure is ever silent ------- */
   function fatal(msg){
@@ -1078,7 +1244,13 @@ if(typeof module!=='undefined'&&module.exports){
     $('filewarn').innerHTML=w;
   }
 
-  /* ------- hotel picker ------- */
+  /* ------- hotel picker + date range ------- */
+  function winInputText(win,which){
+    if(!win||!win[which]) return '';
+    if(win.day) return win[which];
+    if(win.md) return fmtISOday('0000-'+win[which]);
+    return fmtISOday(win[which])+win[which].slice(2,4);
+  }
   function setupHotelPicker(){
     var hotels=distinctHotels(S.master.rows);
     var domName=dominantHotelName(S.hotel.rows);
@@ -1103,6 +1275,9 @@ if(typeof module!=='undefined'&&module.exports){
     }).join('');
     S.hotelList=hotels;
     document.querySelectorAll('.hotelck').forEach(function(ck){ ck.addEventListener('change',refreshCompareState); });
+    var autoWin=masterDateWindow(S.master.rows);
+    $('win-from').value=winInputText(autoWin,'min');
+    $('win-to').value=winInputText(autoWin,'max');
     refreshCompareState();
   }
   function selectedHotelCanons(){
@@ -1110,6 +1285,11 @@ if(typeof module!=='undefined'&&module.exports){
     document.querySelectorAll('.hotelck:checked').forEach(function(ck){ sel.push(S.hotelList[+ck.value].canon); });
     return sel;
   }
+  function currentWindow(){
+    return windowFromInputs(parseDateText($('win-from').value), parseDateText($('win-to').value));
+  }
+  $('win-from').addEventListener('input',refreshCompareState);
+  $('win-to').addEventListener('input',refreshCompareState);
 
   /* The compare button is only enabled when a comparison can actually run —
      and the caption always says why when it can't. No silent dead clicks.  */
@@ -1120,15 +1300,24 @@ if(typeof module!=='undefined'&&module.exports){
     else if(!S.hotel.rows.length) reason='The hotel file has no readable booking rows — pick a different sheet tab above.';
     else if(!selectedHotelCanons().length) reason='Tick at least one hotel above to enable comparison.';
     btn.disabled=!!reason;
+    if(S.master&&S.hotel){
+      var fv=$('win-from').value.trim(), tv=$('win-to').value.trim();
+      var fp=parseDateText(fv), tp=parseDateText(tv);
+      var bad=[];
+      if(fv&&fp.slice(0,4)==='TXT:') bad.push('“'+fv+'”');
+      if(tv&&tp.slice(0,4)==='TXT:') bad.push('“'+tv+'”');
+      var win=windowFromInputs(fp,tp);
+      $('win-note').textContent = bad.length
+        ? '⚠ Couldn’t read '+bad.join(' and ')+' — that side of the range is treated as open.'
+        : (win ? 'Auto-detected from the master — edit if wrong. Bookings outside '+fmtWindow(win)+' are left untouched.'
+               : 'No range set — every hotel booking is in scope.');
+    }
     if(reason){
       $('cmp-scope').textContent=reason;
     }else{
       var canons=selectedHotelCanons();
       var n=S.master.rows.filter(function(r){ return canons.indexOf(r.hotel)>=0; }).length;
-      var win=masterDateWindow(S.master.rows);
-      $('cmp-scope').textContent=n+' master rows will be compared against '+S.hotel.rows.length+
-        ' hotel-sheet rows.'+(win?' Master covers '+fmtWindow(win)+
-        ' — hotel bookings outside that window are left untouched.':'');
+      $('cmp-scope').textContent=n+' master rows will be compared against '+S.hotel.rows.length+' hotel-sheet rows.';
     }
   }
 
@@ -1141,9 +1330,9 @@ if(typeof module!=='undefined'&&module.exports){
     var canons=selectedHotelCanons();
     if(!canons.length){ refreshCompareState(); return; }
     var masterRows=S.master.rows.filter(function(r){ return canons.indexOf(r.hotel)>=0; });
-    /* the master only covers its own date window — hotel bookings outside it
-       are out of scope: never matched, never proposed as cancellations      */
-    var win=masterDateWindow(S.master.rows);
+    /* the master only covers the selected date window — hotel bookings outside
+       it are out of scope: never matched, never proposed as cancellations     */
+    var win=currentWindow();
     var inScope=[], outside=[];
     S.hotel.rows.forEach(function(h){ (inWindow(win,h.ciDate)?inScope:outside).push(h); });
     var res=matchRows(masterRows,inScope);
@@ -1167,7 +1356,7 @@ if(typeof module!=='undefined'&&module.exports){
     toast(t===0?'Sheets are in sync — nothing to change':t+' proposed change'+(t!==1?'s':'')+' to review');
   }
 
-  /* ------- grid entries model ------- */
+  /* ------- entries model (shared by both views) ------- */
   function searchText(rec){
     return (rec.names.join(' ')+' '+rec.disp.join(' ')).toLowerCase();
   }
@@ -1177,8 +1366,11 @@ if(typeof module!=='undefined'&&module.exports){
     R.unchanged.forEach(function(mt){ entries.push({kind:'unchanged',h:mt.h,m:mt.m,order:mt.h.srcRow}); });
     R.outside.forEach(function(h){ entries.push({kind:'outside',h:h,order:h.srcRow}); });
     R.cancels.forEach(function(c){ entries.push({kind:'cancel',c:c,h:c.h,order:c.h.srcRow}); });
+    R.news.forEach(function(n){
+      var at=insertionSrcRow(n.m,S.hotel.rows);
+      entries.push({kind:'new',n:n,m:n.m,order:(at===Infinity?1e9:at-0.5)});
+    });
     entries.sort(function(a,b){ return a.order-b.order; });
-    R.news.forEach(function(n){ entries.push({kind:'new',n:n,m:n.m,order:1e9}); });
     entries.forEach(function(e){
       e.search=(e.h?searchText(e.h):'')+(e.m?' '+searchText(e.m):'');
     });
@@ -1192,18 +1384,12 @@ if(typeof module!=='undefined'&&module.exports){
     out.push(m.disp[12]||'');
     return out;
   }
-
   function crewLine(rec){
     var ns=rec.names.filter(function(x){return normWS(x)!=='';});
     return ns.length?ns.join(' · '):'(no names)';
   }
-  function stayLine(rec){
-    var bits=[];
-    if(rec.disp[3]) bits.push('in '+rec.disp[3]+(rec.disp[2]?' '+rec.disp[2]:''));
-    if(rec.disp[4]) bits.push('flt '+rec.disp[4]);
-    if(rec.disp[6]) bits.push('out '+rec.disp[6]+(rec.disp[5]?' '+rec.disp[5]:''));
-    if(rec.disp[7]) bits.push('flt '+rec.disp[7]);
-    return bits.join(' &nbsp;|&nbsp; ');
+  function effText(it){
+    return (it.canBoth&&it.mode==='both') ? pairingBothText(it.oldText,it.newText) : it.newText;
   }
 
   /* ------- render: shared ------- */
@@ -1252,95 +1438,124 @@ if(typeof module!=='undefined'&&module.exports){
     $('approve-count').innerHTML='<b>'+c.approved+'</b> of '+c.total+' proposed changes approved';
   }
 
-  /* ------- render: side-by-side grid ------- */
+  /* ------- render: side-by-side dashboard cards ------- */
   function catClass(it){ return it.cat==='name'?'c-name':'c-sched'; }
 
-  function renderGrid(){
-    var h=['<table class="grid"><thead><tr><th class="lbl">Row</th>'];
-    GRID_HEADS.forEach(function(g){ h.push('<th>'+g+'</th>'); });
-    h.push('</tr></thead><tbody>');
-    S.entries.forEach(function(e,ei){
-      var unch=e.kind==='unchanged';
-      var dimCls=unch?' dim':'';
-      if(e.kind==='update'||unch){
-        var marks={}, srcMarks={};
-        if(e.kind==='update') e.u.items.forEach(function(it,ii){
-          marks[it.col]=ii; srcMarks[it.col]=ii;
-          if(it.sub==='add'&&it.confCol!=null){ marks[it.confCol]=ii; }
-        });
-        var mrow=masterAs16(e.m);
-        h.push('<tr data-grp="'+ei+'" class="rmaster grp-first'+dimCls+'"><td class="lbl"><span class="rowtag master">Master</span></td>');
-        for(var c=0;c<16;c++){
-          var ii=srcMarks[c];
-          if(ii!=null && (c<12 || c===15)){
-            var it=e.u.items[ii];
-            h.push('<td class="d-src '+catClass(it)+'" data-ei="'+ei+'" data-ii="'+ii+'" tabindex="0" '+
-                   'aria-label="'+escHtml(it.label+': '+(it.oldText||'blank')+' to '+(it.newText||'removed'))+'">'+
-                   escHtml(mrow[c])+'</td>');
-          } else h.push('<td>'+escHtml(mrow[c])+'</td>');
-        }
-        h.push('</tr>');
-        h.push('<tr data-grp="'+ei+'" class="'+dimCls.trim()+'"><td class="lbl"><span class="rowtag hotel">Hotel · r'+(e.h.srcRow+1)+'</span></td>');
-        for(var c2=0;c2<16;c2++){
-          var ii2=marks[c2];
-          if(ii2!=null){
-            var it2=e.u.items[ii2];
-            var appr=it2.ck?' appr':'';
-            var shown=it2.ck ? (c2===it2.confCol?'NEW':it2.newText) : (e.h.disp[c2]||'');
-            if(it2.ck&&it2.sub==='remove') shown='';
-            h.push('<td class="d '+catClass(it2)+appr+'" data-ei="'+ei+'" data-ii="'+ii2+'" tabindex="0" role="button" '+
-                   'aria-pressed="'+(!!it2.ck)+'" aria-label="'+escHtml(it2.label+': '+(it2.oldText||'blank')+' to '+(it2.newText||'removed'))+'">'+
-                   escHtml(shown)+(it2.ck?'<span class="apprmark">✓</span>':'')+'</td>');
-          } else h.push('<td>'+escHtml(e.h.disp[c2]||'')+'</td>');
-        }
-        h.push('</tr>');
-      }
-      if(e.kind==='new'){
-        var nr=masterAs16(e.m);
-        var apprN=e.n.ck?' appr':'';
-        h.push('<tr data-grp="'+ei+'" class="grp-first"><td class="lbl"><span class="rowtag newtag">New</span></td>');
-        for(var c3=0;c3<16;c3++){
-          var txt=nr[c3];
-          if(e.n.ck && c3>=12 && c3<=14 && e.m.nameKeys[c3-12]) txt='NEW';
-          h.push('<td class="d c-new'+apprN+'" data-ei="'+ei+'" tabindex="'+(c3===0?'0':'-1')+'" role="button" '+
-                 'aria-pressed="'+(!!e.n.ck)+'">'+escHtml(txt)+
-                 (e.n.ck&&c3===0?'<span class="apprmark">✓</span>':'')+'</td>');
-        }
-        h.push('</tr>');
-      }
-      if(e.kind==='outside'){
-        h.push('<tr data-grp="'+ei+'" class="grp-first dim"><td class="lbl" title="'+
-               escHtml('Check-in '+(e.h.disp[3]||'?')+' is outside the master\'s window ('+
-               fmtWindow(S.result.win)+') — this row is left untouched.')+
-               '"><span class="rowtag outtag">Out of range</span></td>');
-        for(var c5=0;c5<16;c5++) h.push('<td>'+escHtml(e.h.disp[c5]||'')+'</td>');
-        h.push('</tr>');
-      }
-      if(e.kind==='cancel'){
-        var apprC=e.c.ck?' appr':'';
-        h.push('<tr data-grp="'+ei+'" class="grp-first"><td class="lbl"><span class="rowtag cantag">Cancel?</span></td>');
-        for(var c4=0;c4<16;c4++){
-          h.push('<td class="d c-cancel'+apprC+'" data-ei="'+ei+'" tabindex="'+(c4===0?'0':'-1')+'" role="button" '+
-                 'aria-pressed="'+(!!e.c.ck)+'">'+escHtml(e.h.disp[c4]||'')+
-                 (e.c.ck&&c4===0?'<span class="apprmark">✓</span>':'')+'</td>');
-        }
-        h.push('</tr>');
-      }
+  function pairRowsHtml(e,ei){
+    var marks={}, srcMarks={};
+    if(e.kind==='update') e.u.items.forEach(function(it,ii){
+      marks[it.col]=ii; srcMarks[it.col]=ii;
+      if(it.sub==='add'&&it.confCol!=null){ marks[it.confCol]=ii; }
     });
-    h.push('</tbody></table>');
+    var mrow=masterAs16(e.m);
+    var h='<tr class="rmaster"><td class="lbl">Master</td>';
+    for(var c=0;c<16;c++){
+      var ii=srcMarks[c];
+      if(ii!=null && (c<12 || c===15)){
+        var it=e.u.items[ii];
+        h+='<td class="d-src '+catClass(it)+'" data-ei="'+ei+'" data-ii="'+ii+'" tabindex="0" '+
+           'aria-label="'+escHtml(it.label+': '+(it.oldText||'blank')+' to '+(it.newText||'removed'))+'">'+
+           escHtml(mrow[c])+'</td>';
+      } else h+='<td>'+escHtml(mrow[c])+'</td>';
+    }
+    h+='</tr><tr><td class="lbl">Hotel</td>';
+    for(var c2=0;c2<16;c2++){
+      var ii2=marks[c2];
+      if(ii2!=null){
+        var it2=e.u.items[ii2];
+        var appr=it2.ck?' appr':'';
+        var shown=it2.ck ? (c2===it2.confCol?'NEW':effText(it2)) : (e.h.disp[c2]||'');
+        if(it2.ck&&it2.sub==='remove') shown='';
+        h+='<td class="d '+catClass(it2)+appr+'" data-ei="'+ei+'" data-ii="'+ii2+'" tabindex="0" role="button" '+
+           'aria-pressed="'+(!!it2.ck)+'" aria-label="'+escHtml(it2.label+': '+(it2.oldText||'blank')+' to '+(it2.newText||'removed'))+'">'+
+           escHtml(shown)+(it2.ck?'<span class="apprmark">✓</span>':'')+'</td>';
+      } else h+='<td>'+escHtml(e.h.disp[c2]||'')+'</td>';
+    }
+    return h+'</tr>';
+  }
+
+  function cardHtml(e,ei){
+    var head='', body='', cls='bk', tblW=' style="width:'+GRID_W+'px"';
+    if(e.kind==='update'||e.kind==='unchanged'){
+      var upd=e.kind==='update';
+      cls+=upd?' k-update':' k-unchanged quiet';
+      var state='';
+      if(upd){
+        var t=e.u.items.length, a=e.u.items.filter(function(it){return it.ck;}).length;
+        state='<span class="bk-state">'+a+'/'+t+' approved</span>';
+      }
+      head='<span class="rowtag '+(upd?'chgtag':'unctag')+'">'+(upd?'Changed':'Unchanged')+'</span>'+
+        '<span class="bk-who">'+escHtml(crewLine(e.h))+'</span>'+
+        metaChips(e.h,e.h.srcRow+1)+
+        (upd?'<span class="bk-why" title="How these two rows were matched">'+escHtml(e.u.why)+'</span>':'')+
+        state;
+      body='<table class="bkt"'+tblW+'>'+colgroupHtml()+pairRowsHtml(e,ei)+'</table>';
+    }
+    if(e.kind==='new'){
+      cls+=' k-new';
+      var nr=masterAs16(e.m);
+      head='<span class="rowtag newtag">New booking</span>'+
+        '<span class="bk-who">'+escHtml(crewLine(e.m))+'</span>'+metaChips(e.m,null)+
+        '<span class="bk-state">'+(e.n.ck?'approved ✓':'not approved')+'</span>';
+      var r='<tr><td class="lbl">Master</td>';
+      for(var c3=0;c3<16;c3++){
+        var txt=nr[c3];
+        if(e.n.ck && c3>=12 && c3<=14 && e.m.nameKeys[c3-12]) txt='NEW';
+        r+='<td class="d c-new'+(e.n.ck?' appr':'')+'" data-ei="'+ei+'" tabindex="'+(c3===0?'0':'-1')+'" role="button" '+
+           'aria-pressed="'+(!!e.n.ck)+'">'+escHtml(txt)+
+           (e.n.ck&&c3===0?'<span class="apprmark">✓</span>':'')+'</td>';
+      }
+      body='<table class="bkt"'+tblW+'>'+colgroupHtml()+r+'</tr></table>';
+    }
+    if(e.kind==='cancel'){
+      cls+=' k-cancel';
+      var confs=(e.h.disp[12]||'')+((e.h.disp[13])?', '+e.h.disp[13]:'')+((e.h.disp[14])?', '+e.h.disp[14]:'');
+      head='<span class="rowtag cantag">Cancel?</span>'+
+        '<span class="bk-who">'+escHtml(crewLine(e.h))+'</span>'+
+        metaChips(e.h,e.h.srcRow+1)+
+        (confs?'<span class="bk-why">conf: '+escHtml(confs)+'</span>':'')+
+        '<span class="bk-state">'+(e.c.ck?'approved ✓':'not approved')+'</span>';
+      var rc='<tr><td class="lbl">Hotel</td>';
+      for(var c4=0;c4<16;c4++){
+        rc+='<td class="d c-cancel'+(e.c.ck?' appr':'')+'" data-ei="'+ei+'" tabindex="'+(c4===0?'0':'-1')+'" role="button" '+
+           'aria-pressed="'+(!!e.c.ck)+'">'+escHtml(e.h.disp[c4]||'')+
+           (e.c.ck&&c4===0?'<span class="apprmark">✓</span>':'')+'</td>';
+      }
+      body='<table class="bkt"'+tblW+'>'+colgroupHtml()+rc+'</tr></table>';
+    }
+    if(e.kind==='outside'){
+      cls+=' k-outside quiet';
+      head='<span class="rowtag outtag" title="'+escHtml('Check-in '+(e.h.disp[3]||'?')+
+           ' is outside the master\'s window ('+fmtWindow(S.result.win)+') — left untouched.')+
+           '">Out of range</span>'+
+        '<span class="bk-who">'+escHtml(crewLine(e.h))+'</span>'+
+        metaChips(e.h,e.h.srcRow+1)+
+        '<span class="bk-why">outside '+escHtml(fmtWindow(S.result.win))+' — untouched</span>';
+      var ro='<tr><td class="lbl">Hotel</td>';
+      for(var c5=0;c5<16;c5++) ro+='<td>'+escHtml(e.h.disp[c5]||'')+'</td>';
+      body='<table class="bkt"'+tblW+'>'+colgroupHtml()+ro+'</tr></table>';
+    }
+    return '<div class="'+cls+'" data-grp="'+ei+'"><div class="bk-head">'+head+'</div>'+body+'</div>';
+  }
+
+  function renderGrid(){
+    var h=['<div class="gridhead"><table class="bkt" style="width:'+GRID_W+'px">'+colgroupHtml()+'<tr><th class="lbl">Row</th>'];
+    GRID_HEADS.forEach(function(g){ h.push('<th>'+g+'</th>'); });
+    h.push('</tr></table></div>');
+    S.entries.forEach(function(e,ei){ h.push(cardHtml(e,ei)); });
     $('gridwrap').innerHTML=h.join('');
     applyRowVisibility();
   }
 
-  /* one place decides row visibility: search filter + show-unchanged toggle */
+  /* one place decides card visibility: search filter + show-untouched toggle */
   function applyRowVisibility(){
     var q=($('search').value||'').toLowerCase().trim();
     var showU=$('show-unch').checked;
-    document.querySelectorAll('#gridwrap tr[data-grp]').forEach(function(tr){
-      var e=S.entries[+tr.dataset.grp];
+    document.querySelectorAll('#gridwrap .bk[data-grp]').forEach(function(bk){
+      var e=S.entries[+bk.dataset.grp];
       var untouched=(e.kind==='unchanged'||e.kind==='outside');
       var vis=(showU||!untouched) && (!q||e.search.indexOf(q)>=0);
-      tr.style.display=vis?'':'none';
+      bk.style.display=vis?'':'none';
     });
     document.querySelectorAll('#groups .booking[data-search]').forEach(function(b){
       b.style.display=(!q||b.getAttribute('data-search').indexOf(q)>=0)?'':'none';
@@ -1349,7 +1564,7 @@ if(typeof module!=='undefined'&&module.exports){
   $('search').addEventListener('input',applyRowVisibility);
   $('show-unch').addEventListener('change',applyRowVisibility);
 
-  /* ------- render: card view ------- */
+  /* ------- render: card view (change list) ------- */
   function renderCards(){
     var R=S.result, html='';
     if(R.updates.length){
@@ -1358,18 +1573,23 @@ if(typeof module!=='undefined'&&module.exports){
         '<button class="small" data-act="none-upd">Clear</button></h3>';
       R.updates.forEach(function(u,ui){
         html+='<div class="booking" data-search="'+escHtml(searchText(u.h)+' '+searchText(u.m))+'">'+
-          '<div class="who">'+escHtml(crewLine(u.h))+'</div>'+
-          '<div class="meta">Hotel sheet row '+(u.h.srcRow+1)+' &nbsp;·&nbsp; '+stayLine(u.h)+
-          ' &nbsp;·&nbsp; matched: '+escHtml(u.why)+'</div>'+
+          '<div class="bhead"><span class="who">'+escHtml(crewLine(u.h))+'</span>'+
+          metaChips(u.h,u.h.srcRow+1)+
+          '<span class="bwhy" title="How these two rows were matched">'+escHtml(u.why)+'</span></div>'+
           '<table class="diff"><tr><th style="width:26px"></th><th>Field</th><th>Hotel sheet (current)</th><th>Master (new)</th></tr>';
         u.items.forEach(function(it,ii){
           var tag=it.cat==='name'
             ?'<span class="tag" style="background:'+C_NAME+'">NAME</span>'
             :'<span class="tag" style="background:'+C_SCHED+'">SCHED</span>';
+          var modeSel=it.canBoth
+            ?'<select data-updmode="'+ui+':'+ii+'" aria-label="Pairing code action">'+
+              '<option value="replace"'+(it.mode!=='both'?' selected':'')+'>replace</option>'+
+              '<option value="both"'+(it.mode==='both'?' selected':'')+'>keep both</option></select>'
+            :'';
           html+='<tr><td><input type="checkbox" data-upd="'+ui+':'+ii+'"'+(it.ck?' checked':'')+'></td>'+
             '<td>'+escHtml(it.label)+' '+tag+'</td>'+
             '<td class="old">'+escHtml(it.oldText||'(blank)')+'</td>'+
-            '<td class="new">'+escHtml(it.newText||'(removed)')+
+            '<td class="new">'+escHtml(it.mode==='both'?effText(it):(it.newText||'(removed)'))+modeSel+
             (it.note?'<div class="cancelnote">'+escHtml(it.note)+'</div>':'')+'</td></tr>';
         });
         html+='</table></div>';
@@ -1381,12 +1601,12 @@ if(typeof module!=='undefined'&&module.exports){
         '<button class="small" data-act="all-new">Approve all</button>'+
         '<button class="small" data-act="none-new">Clear</button></h3>'+
         '<div class="cnt" style="margin:-4px 0 10px">On the master sheet but not on the hotel sheet. '+
-        'Approved rows are added at the bottom, highlighted green, confirmation marked <b>NEW</b>.</div>';
+        'Approved rows are inserted in date order, highlighted green, confirmation marked <b>NEW</b>.</div>';
       R.news.forEach(function(n,ni){
         html+='<div class="booking" data-search="'+escHtml(searchText(n.m))+'">'+
-          '<label class="cklabel"><input type="checkbox" data-new="'+ni+'"'+
+          '<div class="bhead"><label class="cklabel"><input type="checkbox" data-new="'+ni+'"'+
           (n.ck?' checked':'')+'> Add booking — <span class="who">'+escHtml(crewLine(n.m))+'</span></label>'+
-          '<div class="meta">'+stayLine(n.m)+'</div></div>';
+          metaChips(n.m,null)+'</div></div>';
       });
       html+='</div>';
     }
@@ -1399,18 +1619,19 @@ if(typeof module!=='undefined'&&module.exports){
         'here even though their bookings are fine. <b>Only approve rows you are sure should be cancelled.</b> '+
         'Unapproved rows are left exactly as they are.</div>';
       R.cancels.forEach(function(cn,ci){
+        var confs=(cn.h.disp[12]||'')+((cn.h.disp[13])?', '+cn.h.disp[13]:'')+((cn.h.disp[14])?', '+cn.h.disp[14]:'');
         html+='<div class="booking" data-search="'+escHtml(searchText(cn.h))+'">'+
-          '<label class="cklabel"><input type="checkbox" data-can="'+ci+'"'+
+          '<div class="bhead"><label class="cklabel"><input type="checkbox" data-can="'+ci+'"'+
           (cn.ck?' checked':'')+'> Cancel — <span class="who">'+escHtml(crewLine(cn.h))+'</span></label>'+
-          '<div class="meta">Hotel sheet row '+(cn.h.srcRow+1)+' &nbsp;·&nbsp; '+stayLine(cn.h)+
-          ' &nbsp;·&nbsp; conf: '+escHtml((cn.h.disp[12]||'')+((cn.h.disp[13])?', '+cn.h.disp[13]:'')+((cn.h.disp[14])?', '+cn.h.disp[14]:''))+'</div></div>';
+          metaChips(cn.h,cn.h.srcRow+1)+
+          (confs?'<span class="bwhy">conf: '+escHtml(confs)+'</span>':'')+'</div></div>';
       });
       html+='</div>';
     }
     if(R.unchanged.length){
       html+='<details class="unchanged"><summary>Unchanged bookings ('+R.unchanged.length+')</summary><ul>';
       R.unchanged.forEach(function(mt){
-        html+='<li>'+escHtml(crewLine(mt.h))+' — '+stayLine(mt.h)+'</li>';
+        html+='<li>'+escHtml(crewLine(mt.h))+' — row '+(mt.h.srcRow+1)+', in '+escHtml(mt.h.disp[3]||'?')+'</li>';
       });
       html+='</ul></details>';
     }
@@ -1418,7 +1639,7 @@ if(typeof module!=='undefined'&&module.exports){
       html+='<details class="unchanged"><summary>Outside master window ('+R.outside.length+
         ') — the master covers '+escHtml(fmtWindow(R.win))+', these check in beyond it and are left untouched</summary><ul>';
       R.outside.forEach(function(h){
-        html+='<li>'+escHtml(crewLine(h))+' — '+stayLine(h)+'</li>';
+        html+='<li>'+escHtml(crewLine(h))+' — row '+(h.srcRow+1)+', in '+escHtml(h.disp[3]||'?')+'</li>';
       });
       html+='</ul></details>';
     }
@@ -1450,10 +1671,16 @@ if(typeof module!=='undefined'&&module.exports){
       if(el) el.focus({preventScroll:true});
     }
   }
-  function toggleEntryItem(ei,ii){
+  function toggleEntryItem(ei,ii,mode){
     var e=S.entries[ei];
     if(!e) return;
-    if(e.kind==='update'&&ii!=null){ var it=e.u.items[ii]; it.ck=!it.ck; }
+    if(e.kind==='update'&&ii!=null){
+      var it=e.u.items[ii];
+      if(mode){
+        if(it.ck && it.mode===mode) it.ck=false;      /* same button again = undo */
+        else { it.mode=mode; it.ck=true; }
+      }else it.ck=!it.ck;
+    }
     else if(e.kind==='new'){ e.n.ck=!e.n.ck; }
     else if(e.kind==='cancel'){ e.c.ck=!e.c.ck; }
     else return;
@@ -1484,6 +1711,10 @@ if(typeof module!=='undefined'&&module.exports){
   $('groups').addEventListener('change',function(e){
     var t=e.target, R=S.result;
     if(t.dataset.upd!=null){ var p=t.dataset.upd.split(':'); R.updates[+p[0]].items[+p[1]].ck=t.checked; }
+    else if(t.dataset.updmode!=null){
+      var pm=t.dataset.updmode.split(':');
+      R.updates[+pm[0]].items[+pm[1]].mode=t.value;
+    }
     else if(t.dataset.new!=null){ R.news[+t.dataset.new].ck=t.checked; }
     else if(t.dataset.can!=null){ R.cancels[+t.dataset.can].ck=t.checked; }
     else return;
@@ -1527,13 +1758,23 @@ if(typeof module!=='undefined'&&module.exports){
         '<div class="t-change"><span class="t-old">'+escHtml(it.oldText||'(blank)')+'</span>'+
         '<span class="t-arrow">→</span><span class="t-new">'+escHtml(it.newText||'(removed)')+'</span></div>'+
         (it.note?'<div class="t-warnnote">'+escHtml(it.note)+'</div>':'')+
-        '<div class="t-note">Matched: '+escHtml(e.u.why)+'</div>'+
-        '<button class="'+(it.ck?'undo':'primary')+'" data-tip-ei="'+ei+'" data-tip-ii="'+ii+'">'+
-        (it.ck?'Approved ✓ — click to undo':'Approve change')+'</button>';
+        '<div class="t-note">Matched: '+escHtml(e.u.why)+'</div>';
+      if(it.canBoth && !it.ck){
+        html+='<button class="primary" data-tip-ei="'+ei+'" data-tip-ii="'+ii+'" data-tip-mode="replace">Replace → '+
+              escHtml(it.newText)+'</button>'+
+              '<button data-tip-ei="'+ei+'" data-tip-ii="'+ii+'" data-tip-mode="both">Keep both: “'+
+              escHtml(pairingBothText(it.oldText,it.newText))+'”</button>';
+      }else if(it.canBoth && it.ck){
+        html+='<button class="undo" data-tip-ei="'+ei+'" data-tip-ii="'+ii+'">Approved ✓ ('+
+              (it.mode==='both'?'kept both':'replaced')+') — click to undo</button>';
+      }else{
+        html+='<button class="'+(it.ck?'undo':'primary')+'" data-tip-ei="'+ei+'" data-tip-ii="'+ii+'">'+
+              (it.ck?'Approved ✓ — click to undo':'Approve change')+'</button>';
+      }
     }else if(e.kind==='new'){
       html='<div class="t-label"><span class="dot" style="background:'+C_NEW+'"></span>New booking</div>'+
         '<div class="t-change"><span class="t-new">'+escHtml(crewLine(e.m))+'</span></div>'+
-        '<div class="t-note">On the master, missing from the hotel sheet. Approving adds this row in green with confirmation marked NEW.</div>'+
+        '<div class="t-note">On the master, missing from the hotel sheet. Approving inserts this row in date order, in green, confirmation marked NEW.</div>'+
         '<button class="'+(e.n.ck?'undo':'primary')+'" data-tip-ei="'+ei+'">'+
         (e.n.ck?'Approved ✓ — click to undo':'Approve new booking')+'</button>';
     }else if(e.kind==='cancel'){
@@ -1547,7 +1788,13 @@ if(typeof module!=='undefined'&&module.exports){
     tipEl.innerHTML=html;
     tipEl.classList.add('show');
     tipCell=td;
-    var r=td.getBoundingClientRect(), tw=tipEl.offsetWidth, th=tipEl.offsetHeight;
+    positionTip(td);
+  }
+  function positionTip(td){
+    var r=td.getBoundingClientRect();
+    var wrap=$('gridwrap').getBoundingClientRect();
+    if(r.right<wrap.left||r.left>wrap.right||r.bottom<wrap.top||r.top>wrap.bottom){ hideTip(true); return; }
+    var tw=tipEl.offsetWidth, th=tipEl.offsetHeight;
     var x=Math.min(Math.max(8, r.left), window.innerWidth-tw-8);
     var y=r.top-th-10;
     if(y<8) y=r.bottom+10;
@@ -1573,11 +1820,16 @@ if(typeof module!=='undefined'&&module.exports){
   tipEl.addEventListener('mouseleave',function(){ hideTip(false); });
   tipEl.addEventListener('click',function(e){
     var b=e.target.closest('[data-tip-ei]');
-    if(b) toggleEntryItem(+b.dataset.tipEi, b.dataset.tipIi!=null?+b.dataset.tipIi:null);
+    if(b) toggleEntryItem(+b.dataset.tipEi, b.dataset.tipIi!=null?+b.dataset.tipIi:null,
+                          b.dataset.tipMode||null);
   });
   $('gridwrap').addEventListener('focusout',function(){ hideTip(false); });
   document.addEventListener('keydown',function(e){ if(e.key==='Escape') hideTip(true); });
-  window.addEventListener('scroll',function(){ hideTip(true); },true);
+  /* scrolling moves the tooltip with its cell instead of killing it;
+     it only hides once the cell leaves the visible grid area          */
+  window.addEventListener('scroll',function(){
+    if(tipCell && tipEl.classList.contains('show')) positionTip(tipCell);
+  },true);
 
   /* ------- build & copy ------- */
   $('btn-build').addEventListener('click',function(){
@@ -1592,15 +1844,19 @@ if(typeof module!=='undefined'&&module.exports){
     var R=S.result;
     var updates=[];
     R.updates.forEach(function(u){
-      var items=u.items.filter(function(it){return it.ck;});
+      var items=u.items.filter(function(it){return it.ck;}).map(function(it){
+        return {col:it.col,newText:effText(it),cat:it.cat,sub:it.sub,confCol:it.confCol};
+      });
       if(items.length) updates.push({srcRow:u.h.srcRow,items:items});
     });
     var cancels=R.cancels.filter(function(c){return c.ck;}).map(function(c){return c.h.srcRow;});
     var news=R.news.filter(function(n){return n.ck;}).map(function(n){return n.m;});
-    S.output=buildOutput(S.hotel.grid,updates,cancels,news);
+    S.output=buildOutput(S.hotel.grid,updates,cancels,news,S.hotel.rows);
     $('tabname-out').textContent=tabName();
-    /* inline styles so both clipboard paths carry formatting into Excel */
-    var h=['<table><tr>'];
+    /* preview mirrors the paste geometry: widths, wrap, alignment, fills */
+    var h=['<table style="width:'+COL_PX.reduce(function(a,b){return a+b;},0)+'px"><colgroup>'];
+    COL_PX.forEach(function(w){ h.push('<col style="width:'+w+'px">'); });
+    h.push('</colgroup><tr>');
     for(var c=0;c<16;c++) h.push('<th>'+String.fromCharCode(65+c)+'</th>');
     h.push('</tr>');
     S.output.forEach(function(row){
