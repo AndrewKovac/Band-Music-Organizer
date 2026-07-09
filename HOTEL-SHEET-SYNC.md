@@ -72,9 +72,19 @@ number ("4", "7") are understood.
   (A 127px · B–F 96 · G–H 103 · I–J 170 · K 56 · L 162 · M–P 96) plus
   left-justified, vertically-centred, wrap-on formatting for every cell — paste
   and it looks right with no manual formatting.
-- **Pairing codes**: a pairing-only change can be approved as *replace* or as
-  *keep both* ("ABCD, DCBA") — hover the cell for both options, or use the
-  dropdown in the change list. Pairing codes are never used to match rows.
+- **Pairing codes**: the boilerplate prefix hotels type ("Pairing short code
+  97PR") is stripped, so it compares equal to the master's bare "97PR". When
+  the *code itself* changed, approve it as *replace* or as *keep both*
+  ("ABCD, DCBA") — hover the cell for both options, or use the dropdown in the
+  change list. A matching pairing code + check-in date is also the strongest
+  row-matching signal, so a booking is recognised even when the whole crew
+  swapped (or is still "TBA CA / TBA FO").
+- **Historical bookings**: anything that checked in before today is tagged
+  *Historical* and never proposed for cancellation or edits.
+- **Calibration**: the `dev/` folder holds the full test pipeline, including
+  golden fixtures built from real (fake-data) spreadsheets. Any wrong
+  suggestion seen in the field becomes a fixture there before it is fixed, so
+  accuracy only ratchets up.
 
 ## How rows are matched
 

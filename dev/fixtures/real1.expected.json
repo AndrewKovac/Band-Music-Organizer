@@ -1,0 +1,15 @@
+{
+  "hotelSheet": "ORIG JUN 25",
+  "window": { "from": "22JUL26", "to": "27JUL26" },
+  "expect": {
+    "updates": [
+      { "who": "JONES, ANDREW", "fields": ["Name 1"] },
+      { "who": "STEINBURG, JEREMY", "fields": ["Check-in time"] }
+    ],
+    "new": ["WALKER, BRADY"],
+    "cancel": ["TBA CA"],
+    "outside": [],
+    "past": [],
+    "unchangedCount": 0
+  }
+}
