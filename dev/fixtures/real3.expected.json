@@ -1,0 +1,14 @@
+{
+  "hotelSheet": "JUL 08 AK N",
+  "today": "2026-07-09",
+  "now": "14:00",
+  "window": { "from": "09JUL26", "to": "13JUL26" },
+  "expect": {
+    "updates": [],
+    "new": [],
+    "cancel": ["EVANS, NIGHT"],
+    "outside": [],
+    "past": ["CHEN, MORNING", "DIAZ, EARLY"],
+    "unchangedCount": 1
+  }
+}

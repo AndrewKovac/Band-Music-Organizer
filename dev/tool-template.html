@@ -7,7 +7,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c92c3a'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='900' font-style='italic' font-size='14' fill='white' text-anchor='middle'%3ECJ%3C/text%3E%3C/svg%3E">
 <title>Hotel Sheet Sync · Cargojet Crew Travel</title>
-<!-- Hotel Sheet Sync v1.7 -->
+<!-- Hotel Sheet Sync v1.8 -->
 <style>
   /* ---- Cargojet palette ----
      main #060000 · accent #c92c3a · header #5e6368 · text #858585  */
@@ -1156,12 +1156,51 @@ function isPastISO(canon,todayISO){
          canon.slice(0,4)!=='0000' && canon<todayISO;
 }
 
-/* Date+time-aware version: a check-in earlier TODAY is also in the past.
-   A today row with no readable time stays actionable (can't prove it's past). */
+/* Resolve ANY canonical date form to a real calendar date so it can be
+   compared against the clock. Yearless month-days and bare day numbers get
+   the nearest plausible date (hotel sheets live within a couple of weeks of
+   today, so nearest-to-today is the operationally correct reading).        */
+function resolveToDate(canon,todayISO){
+  if(!canon) return null;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(canon) && canon.slice(0,4)!=='0000') return canon;
+  var tT=Date.parse(todayISO);
+  function nearest(cands){
+    var best=null,bd=Infinity;
+    cands.forEach(function(iso){
+      var t=Date.parse(iso);
+      if(isNaN(t)) return;
+      var diff=Math.abs(Math.round((t-tT)/86400000));
+      if(diff<bd){bd=diff;best=iso;}
+    });
+    return best;
+  }
+  var ty=+todayISO.slice(0,4);
+  if(canon.slice(0,4)==='0000'){
+    var mm=+canon.slice(5,7), dd=+canon.slice(8,10);
+    return nearest([isoParts(ty-1,mm,dd),isoParts(ty,mm,dd),isoParts(ty+1,mm,dd)]);
+  }
+  if(canon.slice(0,2)==='D:'){
+    var d=+canon.slice(2), tm=+todayISO.slice(5,7);
+    var cands=[];
+    [-1,0,1].forEach(function(k){
+      var mo=tm+k, y=ty;
+      if(mo===0){mo=12;y--;}
+      if(mo===13){mo=1;y++;}
+      cands.push(isoParts(y,mo,d));
+    });
+    return nearest(cands);
+  }
+  return null;
+}
+
+/* Date+time-aware past check: literally convert the cell contents to a date
+   and time and ask if that moment has already happened. A today row with no
+   readable time stays actionable (can't prove it's past).                  */
 function isPastDT(ciDate,ciTime,todayISO,nowHM){
-  if(!ciDate || !/^\d{4}-\d{2}-\d{2}$/.test(ciDate) || ciDate.slice(0,4)==='0000') return false;
-  if(ciDate<todayISO) return true;
-  if(ciDate>todayISO) return false;
+  var d=resolveToDate(ciDate,todayISO);
+  if(!d) return false;
+  if(d<todayISO) return true;
+  if(d>todayISO) return false;
   return /^\d{2}:\d{2}$/.test(ciTime||'') && ciTime<nowHM;
 }
 
@@ -1198,7 +1237,7 @@ if(typeof module!=='undefined'&&module.exports){
     masterDateWindow:masterDateWindow,inWindow:inWindow,fmtWindow:fmtWindow,
     windowFromInputs:windowFromInputs,dateCmp:dateCmp,dayOf:dayOf,
     insertionSrcRow:insertionSrcRow,pairingBothText:pairingBothText,
-    canonPairing:canonPairing,isPastISO:isPastISO,isPastDT:isPastDT,isoParts:isoParts,
+    canonPairing:canonPairing,isPastISO:isPastISO,isPastDT:isPastDT,isoParts:isoParts,resolveToDate:resolveToDate,
     headerField:headerField,buildColMap:buildColMap,anchorDayToUTC:anchorDayToUTC,
     foldSplitPairings:foldSplitPairings,FOOTER_TEXT:FOOTER_TEXT,fmtDayMon:fmtDayMon};
 }

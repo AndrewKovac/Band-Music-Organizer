@@ -56,6 +56,20 @@ eq(C.isPastDT('2026-07-09', '', '2026-07-09', '14:00'), false, 'today with unkno
 eq(C.isPastDT('2026-07-08', '23:59', '2026-07-09', '00:01'), true, 'yesterday always past');
 eq(C.isPastDT('2026-07-10', '00:01', '2026-07-09', '23:59'), false, 'tomorrow never past');
 
+/* literal date resolution: yearless text and day numbers become real dates */
+eq(C.resolveToDate('0000-07-09', '2026-07-09'), '2026-07-09', 'yearless 9-Jul resolves to this 9-Jul');
+eq(C.resolveToDate('0000-12-30', '2027-01-02'), '2026-12-30', 'yearless near new year picks last year');
+eq(C.resolveToDate('D:09', '2026-07-09'), '2026-07-09', 'bare day 9 resolves to today');
+eq(C.resolveToDate('D:28', '2026-07-05'), '2026-06-28', 'bare day 28 early in month -> late last month');
+eq(C.resolveToDate('D:22', '2026-07-09'), '2026-07-22', 'bare day 22 -> later this month');
+eq(C.resolveToDate('TXT:WHENEVER', '2026-07-09'), null, 'unreadable stays unresolved');
+/* the reported bug: hotel sheet says "9-Jul" (no year), crew checked in this morning */
+eq(C.isPastDT(C.parseDateText('9-Jul'), '05:18', '2026-07-09', '14:00'), true,
+   'morning-of-the-9th with yearless text date IS past by the afternoon');
+eq(C.isPastDT(C.parseDateText('9-Jul'), '23:10', '2026-07-09', '14:00'), false,
+   'tonight-of-the-9th yearless is still actionable');
+eq(C.isPastDT('D:9', '05:18', '2026-07-09', '14:00'), true, 'day-number date also resolves and locks');
+
 /* ---- row fixtures (parsed-rec shape) ---- */
 function rec(kind, o) {
   const names = o.names.concat(['', '', '']).slice(0, 3);
