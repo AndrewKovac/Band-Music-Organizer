@@ -49,6 +49,13 @@ eq(C.isPastISO('0000-07-04', '2026-07-09'), false, 'yearless date is never past'
 eq(C.isPastISO('D:04', '2026-07-09'), false, 'day-only date is never past');
 eq(C.isPastISO('TXT:4TH ISH', '2026-07-09'), false, 'unparsed date is never past');
 
+/* date+time-aware past: a check-in earlier today is locked too */
+eq(C.isPastDT('2026-07-09', '05:18', '2026-07-09', '14:00'), true, 'checked in this morning -> past');
+eq(C.isPastDT('2026-07-09', '23:10', '2026-07-09', '14:00'), false, 'tonight -> not past');
+eq(C.isPastDT('2026-07-09', '', '2026-07-09', '14:00'), false, 'today with unknown time stays actionable');
+eq(C.isPastDT('2026-07-08', '23:59', '2026-07-09', '00:01'), true, 'yesterday always past');
+eq(C.isPastDT('2026-07-10', '00:01', '2026-07-09', '23:59'), false, 'tomorrow never past');
+
 /* ---- row fixtures (parsed-rec shape) ---- */
 function rec(kind, o) {
   const names = o.names.concat(['', '', '']).slice(0, 3);
@@ -176,7 +183,9 @@ function rec(kind, o) {
   eq(out[3][0].fill, '#b5e6a2', 'new row green');
   const html = C.outputToClipboardHtml(out);
   assert(html.includes("mso-number-format:'\\@'"), 'conf cols forced text');
-  assert(html.includes('background:#ffff00'), 'clipboard has yellow');
+  assert(html.includes('background-color:#ffff00'), 'clipboard has Excel-safe yellow');
+  assert(html.includes('bgcolor="#ffff00"'), 'clipboard has legacy bgcolor attr');
+  assert(html.includes('<s>'), 'strikethrough doubled as <s> tags');
   assert(html.includes('text-decoration:line-through'), 'clipboard has strike');
 }
 

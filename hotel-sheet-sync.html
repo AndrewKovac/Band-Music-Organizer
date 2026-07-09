@@ -7,6 +7,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c92c3a'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='900' font-style='italic' font-size='14' fill='white' text-anchor='middle'%3ECJ%3C/text%3E%3C/svg%3E">
 <title>Hotel Sheet Sync · Cargojet Crew Travel</title>
+<!-- Hotel Sheet Sync v1.7 -->
 <style>
   /* ---- Cargojet palette ----
      main #060000 · accent #c92c3a · header #5e6368 · text #858585  */
@@ -461,11 +462,7 @@
     <div id="previewbox"></div>
   </div>
 
-  <footer>
-    Hotel Sheet Sync runs entirely inside this one file, in your browser — it never uploads, saves or
-    transmits anything, and works with the network disconnected. Refreshing the page clears all loaded data.<br>
-    Cargojet Crew Travel internal tool · v1.6 · Excel parsing by SheetJS Community Edition (Apache-2.0).
-  </footer>
+  <footer style="text-align:center">Property of CargoJet Crew Scheduling Group</footer>
 </div>
 
 <div id="actionbar"><div class="abar-inner">
@@ -1142,11 +1139,16 @@ function outputToClipboardHtml(out){
   out.forEach(function(row){
     html.push('<tr>');
     row.forEach(function(cell,c){
+      /* Excel's HTML importer drops the 'background' shorthand — use
+         background-color + bgcolor, and <s> for dependable strikethrough */
       var st=['text-align:left','vertical-align:middle','white-space:normal','word-wrap:break-word'];
-      if(cell.fill) st.push('background:'+cell.fill);
+      if(cell.fill) st.push('background-color:'+cell.fill);
       if(cell.strike) st.push('text-decoration:line-through');
       if(c>=12&&c<=14) st.push("mso-number-format:'\\@'");
-      html.push('<td width="'+COL_PX[c]+'" style="'+st.join(';')+'">'+escHtml(cell.text)+'</td>');
+      var txt=escHtml(cell.text);
+      if(cell.strike) txt='<s>'+txt+'</s>';
+      html.push('<td width="'+COL_PX[c]+'"'+(cell.fill?' bgcolor="'+cell.fill+'"':'')+
+                ' style="'+st.join(';')+'">'+txt+'</td>');
     });
     html.push('</tr>');
   });
@@ -1174,6 +1176,15 @@ function computeTabName(date,initials,suffix){
 function isPastISO(canon,todayISO){
   return !!canon && /^\d{4}-\d{2}-\d{2}$/.test(canon) &&
          canon.slice(0,4)!=='0000' && canon<todayISO;
+}
+
+/* Date+time-aware version: a check-in earlier TODAY is also in the past.
+   A today row with no readable time stays actionable (can't prove it's past). */
+function isPastDT(ciDate,ciTime,todayISO,nowHM){
+  if(!ciDate || !/^\d{4}-\d{2}-\d{2}$/.test(ciDate) || ciDate.slice(0,4)==='0000') return false;
+  if(ciDate<todayISO) return true;
+  if(ciDate>todayISO) return false;
+  return /^\d{2}:\d{2}$/.test(ciTime||'') && ciTime<nowHM;
 }
 
 /* hotel-name filtering: master holds every hotel */
@@ -1209,7 +1220,7 @@ if(typeof module!=='undefined'&&module.exports){
     masterDateWindow:masterDateWindow,inWindow:inWindow,fmtWindow:fmtWindow,
     windowFromInputs:windowFromInputs,dateCmp:dateCmp,dayOf:dayOf,
     insertionSrcRow:insertionSrcRow,pairingBothText:pairingBothText,
-    canonPairing:canonPairing,isPastISO:isPastISO,isoParts:isoParts,
+    canonPairing:canonPairing,isPastISO:isPastISO,isPastDT:isPastDT,isoParts:isoParts,
     headerField:headerField,buildColMap:buildColMap,anchorDayToUTC:anchorDayToUTC,
     foldSplitPairings:foldSplitPairings,FOOTER_TEXT:FOOTER_TEXT,fmtDayMon:fmtDayMon};
 }
@@ -1528,6 +1539,7 @@ if(typeof module!=='undefined'&&module.exports){
        started stays are never cancelled, and no new row is created in the past. */
     var now=new Date();
     var todayISO=isoParts(now.getFullYear(),now.getMonth()+1,now.getDate());
+    var nowHM=pad2(now.getHours())+':'+pad2(now.getMinutes());
     var masterRows=S.master.rows.filter(function(r){ return canons.indexOf(r.hotel)>=0; });
     var win=currentWindow();
     var inScope=[], outside=[];
@@ -1537,16 +1549,16 @@ if(typeof module!=='undefined'&&module.exports){
     var res=foldSplitPairings(matchRows(masterRows,inScope));
     var updates=[],unchanged=[];
     res.matches.forEach(function(mt){
-      var lock=isPastISO(mt.h.ciDate,todayISO);
+      var lock=isPastDT(mt.h.ciDate,mt.h.ciTime,todayISO,nowHM);
       var items=diffPair(mt.m,mt.h,{lockCI:lock}).map(function(it){ it.ck=false; return it; });
       if(items.length) updates.push({m:mt.m,h:mt.h,why:mt.why,items:items});
       else unchanged.push(mt);
     });
     var cancels=[], past=[];
     res.cancelledHotel.forEach(function(h){
-      (isPastISO(h.ciDate,todayISO)?past:cancels).push(h);
+      (isPastDT(h.ciDate,h.ciTime,todayISO,nowHM)?past:cancels).push(h);
     });
-    var news=res.newMaster.filter(function(m){ return !isPastISO(m.ciDate,todayISO); });
+    var news=res.newMaster.filter(function(m){ return !isPastDT(m.ciDate,m.ciTime,todayISO,nowHM); });
     S.result={updates:updates,unchanged:unchanged,win:win,
               outside:outside,past:past,
               news:news.map(function(m){return {m:m,ck:false};}),

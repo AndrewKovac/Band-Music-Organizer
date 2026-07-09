@@ -97,22 +97,24 @@ function runFixture(name) {
   const now = new Date();
   const todayISO = (exp && exp.today) ||
     C.isoParts(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  const nowHM = (exp && exp.now) ||
+    (('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2));
   const inScope = [], outside = [];
   hRows.forEach(h => (C.inWindow(win, h.ciDate) ? inScope : outside).push(h));
 
   const res = C.foldSplitPairings(C.matchRows(masterRows, inScope));
   const updates = [], unchanged = [];
   res.matches.forEach(mt => {
-    const items = C.diffPair(mt.m, mt.h, { lockCI: C.isPastISO(mt.h.ciDate, todayISO) });
+    const items = C.diffPair(mt.m, mt.h, { lockCI: C.isPastDT(mt.h.ciDate, mt.h.ciTime, todayISO, nowHM) });
     if (items.length) updates.push({ m: mt.m, h: mt.h, why: mt.why, items });
     else unchanged.push(mt);
   });
   const past = [];
   res.cancelledHotel = res.cancelledHotel.filter(h => {
-    if (C.isPastISO(h.ciDate, todayISO)) { past.push(h); return false; }
+    if (C.isPastDT(h.ciDate, h.ciTime, todayISO, nowHM)) { past.push(h); return false; }
     return true;
   });
-  res.newMaster = res.newMaster.filter(m => !C.isPastISO(m.ciDate, todayISO));
+  res.newMaster = res.newMaster.filter(m => !C.isPastDT(m.ciDate, m.ciTime, todayISO, nowHM));
 
   console.log('\n--- decisions ---');
   updates.forEach(u => {

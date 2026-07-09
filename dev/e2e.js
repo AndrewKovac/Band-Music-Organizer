@@ -246,7 +246,7 @@ function ok(msg) { console.log('  ✓ ' + msg); }
       return await (await it.getType('text/html')).text();
     return '';
   });
-  if (!clip.includes('background:#ffff00') || !clip.includes('text-decoration:line-through') ||
+  if (!clip.includes('background-color:#ffff00') || !clip.includes('text-decoration:line-through') ||
       !clip.includes('mso-number-format') || !clip.includes('WILSON WENDY'))
     fail('clipboard HTML incomplete');
   for (const geom of ['<col width="127">', '<col width="56">', '<col width="162">',
