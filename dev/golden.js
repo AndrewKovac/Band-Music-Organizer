@@ -84,9 +84,7 @@ function runFixture(name) {
     canons = best >= 0 ? [hotels[best].canon] : [];
     console.log(`\nauto hotel pick: ${best >= 0 ? hotels[best].name : 'NONE (similarity 0 — the UI would tick nothing!)'}`);
   }
-  const nowM = new Date();
-  const todayM = C.isoParts(nowM.getFullYear(), nowM.getMonth() + 1, nowM.getDate());
-  const masterRows = mRows.filter(r => canons.indexOf(r.hotel) >= 0 && !C.isPastISO(r.ciDate, todayM));
+  const masterRows = mRows.filter(r => canons.indexOf(r.hotel) >= 0);
 
   // --- window: explicit or the UI's auto-fill ---
   const win = (exp && exp.window)
@@ -94,24 +92,27 @@ function runFixture(name) {
     : C.masterDateWindow(mRows);
   console.log('window: ' + (win ? C.fmtWindow(win) : '(none — everything in scope)'));
 
-  // past guard — same partition as the tool's doCompare
+  // same pipeline as the tool's doCompare (expected.json may pin "today" so
+  // past/future classification stays stable no matter when the suite runs)
   const now = new Date();
-  const todayISO = C.isoParts(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  const inScope = [], outside = [], past = [];
-  hRows.forEach(h => {
-    if (!C.inWindow(win, h.ciDate)) outside.push(h);
-    else if (C.isPastISO(h.ciDate, todayISO)) past.push(h);
-    else inScope.push(h);
-  });
+  const todayISO = (exp && exp.today) ||
+    C.isoParts(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  const inScope = [], outside = [];
+  hRows.forEach(h => (C.inWindow(win, h.ciDate) ? inScope : outside).push(h));
 
-  // --- match & diff, exactly like doCompare ---
-  const res = C.matchRows(masterRows, inScope);
+  const res = C.foldSplitPairings(C.matchRows(masterRows, inScope));
   const updates = [], unchanged = [];
   res.matches.forEach(mt => {
-    const items = C.diffPair(mt.m, mt.h);
+    const items = C.diffPair(mt.m, mt.h, { lockCI: C.isPastISO(mt.h.ciDate, todayISO) });
     if (items.length) updates.push({ m: mt.m, h: mt.h, why: mt.why, items });
     else unchanged.push(mt);
   });
+  const past = [];
+  res.cancelledHotel = res.cancelledHotel.filter(h => {
+    if (C.isPastISO(h.ciDate, todayISO)) { past.push(h); return false; }
+    return true;
+  });
+  res.newMaster = res.newMaster.filter(m => !C.isPastISO(m.ciDate, todayISO));
 
   console.log('\n--- decisions ---');
   updates.forEach(u => {

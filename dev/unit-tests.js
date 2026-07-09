@@ -101,13 +101,13 @@ function rec(kind, o) {
   eq(C.diffPair(m, h).map(i => i.col), [3], 'check-in date flagged');
 }
 
-/* pairing code change alone must NOT split the match */
+/* pairing code change alone must NOT split the match — and is NOT a change */
 {
   const m = rec('master', { names: ['SMITH JOHN', 'DOE JANE'], ciD: '25JUL', inF: 'AB941', pair: 'P999' });
   const h = rec('hotel',  { names: ['SMITH JOHN', 'DOE JANE'], ciD: '25JUL', inF: 'AB941', pair: 'P123' });
   const res = C.matchRows([m], [h]);
   eq(res.matches.length, 1, 'pairing change still matches');
-  eq(C.diffPair(m, h).map(i => i.label), ['Pairing code'], 'pairing flagged as field change');
+  eq(C.diffPair(m, h).length, 0, 'a pairing-code difference alone is never proposed');
 }
 
 /* new + cancelled + non-pilot */
@@ -163,8 +163,9 @@ function rec(kind, o) {
   const newRec = rec('master', { names: ['WILSON WENDY'], ciD: '27JUL', inF: 'AB970', notes: 'late arrival' });
   const out = C.buildOutput(grid,
     [{ srcRow: 1, items: [{ col: 2, newText: '16:30', cat: 'schedule' }] }],
-    [2], [newRec]);
-  eq(out.length, 4, 'rows: header + 2 data + 1 new');
+    [2], [newRec], [{ srcRow: 1, ciDate: '' }, { srcRow: 2, ciDate: '' }]);
+  eq(out.length, 5, 'rows: header + 2 data + 1 new + footer');
+  eq(out[4][0].text, C.FOOTER_TEXT, 'footer row appended');
   eq(out[1][2].text, '16:30', 'time updated');
   eq(out[1][2].fill, '#ffff00', 'yellow fill');
   eq(out[2][0].fill, '#ff0000', 'cancel red');
@@ -271,24 +272,34 @@ eq(C.dateCmp('D:04', 'D:07') < 0, true, 'day-only ordering');
     [{ v: 'AG' }, { v: 'ANC' }, { v: '15:00' }, { v: '30JUL26' }, null, null, null, null, { v: 'BBB' }]
   ];
   const out = C.buildOutput(grid, [], [], [newRec], hRows);
-  eq(out.length, 4, 'header + 2 rows + inserted new');
+  eq(out.length, 5, 'header + 2 rows + inserted new + footer');
   eq(out[2][8].text, 'WILSON WENDY', 'new row inserted at index 2 (before 30JUL)');
   eq(out[3][8].text, 'BBB', '30JUL row pushed down');
+  eq(out[4][0].text, C.FOOTER_TEXT, 'footer stays at the very bottom');
 }
 
-/* pairing "keep both" */
-eq(C.pairingBothText('ABCD', 'DCBA'), 'ABCD, DCBA', 'keep-both text');
-eq(C.pairingBothText('', 'DCBA'), 'DCBA', 'keep-both with no old code');
+/* pairing text helpers */
+eq(C.pairingBothText('ABCD', 'DCBA'), 'ABCD, DCBA', 'combined-code text');
 {
   const m = rec('master', { names: ['SMITH JOHN'], ciD: '25JUL', inF: 'AB941', pair: 'DCBA' });
   const h = rec('hotel',  { names: ['SMITH JOHN'], ciD: '25JUL', inF: 'AB941', pair: 'ABCD' });
-  const items = C.diffPair(m, h);
-  eq(items.length, 1, 'pairing-only change');
-  eq(items[0].canBoth, true, 'pairing item offers keep-both');
-  eq(items[0].mode, 'replace', 'default mode is replace');
+  eq(C.diffPair(m, h).length, 0, 'ordinary code churn produces no proposal at all');
 }
 
 /* clipboard carries the paste geometry */
+/* trailing notes/footers in the source are dropped, replaced by the property line */
+{
+  const grid = [
+    [{ v: 'Hotel Name' }, { v: 'Hotel Location' }],
+    [{ v: 'AG' }, { v: 'ANC' }, { v: '14:00' }, { v: '25JUL26' }, null, null, null, null, { v: 'SMITH JOHN' }],
+    [{ v: 'Booked by front desk — do not modify' }],
+    [{ v: 'old footer 2' }]
+  ];
+  const out = C.buildOutput(grid, [], [], [], [{ srcRow: 1, ciDate: C.parseDateText('25JUL26') }]);
+  eq(out.length, 3, 'old footers dropped: header + data + new footer');
+  eq(out[2][0].text, C.FOOTER_TEXT, 'property footer replaces old notes');
+}
+
 {
   const out = C.buildOutput([[{ v: 'X' }]], [], [], []);
   const html = C.outputToClipboardHtml(out);
@@ -327,6 +338,58 @@ eq(C.pairingBothText('', 'DCBA'), 'DCBA', 'keep-both with no old code');
   eq(res.matches.length, 1, 'TBA row matched by exact stay dates');
   const items = C.diffPair(m, h);
   eq(items.filter(i => i.cat === 'name').length, 2, 'both TBA slots become name changes');
+}
+
+/* header-driven column mapping: the real VMO layout (Arrive to/from columns
+   shift everything, no pairing column, UTC timestamps anchor day numbers) */
+{
+  const vmo = [
+    ['Hotel Name', 'Hotel Location', 'Arrive to', 'Check-in Time', 'Check-in Date', 'Inbound FLT', 'Arrive From',
+     'Check-Out Time', 'Check-Out Date', 'Outbound FLT', 'Depart to', 'Name 1', 'Name 2', 'Name 3',
+     'Check-in(UTC)', 'Check-Out(UTC)', 'Hotel Location(ICAO)'].map(v => ({ v })),
+    [{ v: 'LIM - Pullman Lima Miraflores' }, { v: 'LIM' }, { v: 'LIM' }, { v: '23:10' }, { v: '9' }, { v: 'DL151' }, { v: 'ATL' },
+     { v: '19:05' }, { v: '10' }, { v: '5508' }, { v: 'GYE' }, { v: 'Joe, Jeffrey' }, { v: 'Bob, Jason' }, null,
+     { v: '2026-07-10T04:10' }, { v: '2026-07-11T00:05' }, { v: 'SPJC' }]
+  ];
+  const rows = C.parseRows(vmo, 'master');
+  eq(rows.length, 1, 'VMO row parsed');
+  const r = rows[0];
+  eq(r.ciTime, '23:10', 'check-in time from mapped column');
+  eq(r.ciDate, '2026-07-09', 'day 9 anchored via UTC (which is already the 10th)');
+  eq(r.coDate, '2026-07-10', 'check-out day 10 anchored');
+  eq(r.inFlt, 'DL151', 'inbound flight mapped');
+  eq(r.names[0], 'Joe, Jeffrey', 'name 1 mapped');
+  eq(r.pairing, '', 'no pairing column in VMO');
+  eq(r.disp[3], '9-Jul', 'display date rendered like the hotel sheets');
+  eq(r.disp[11], '', 'canonical display has empty pairing slot');
+}
+eq(C.anchorDayToUTC('D:30', '2026-07-01T02:10'), '2026-06-30', 'month rollover: local 30th, UTC 1st');
+eq(C.anchorDayToUTC('D:07', '2026-07-07T10:18'), '2026-07-07', 'same-day anchor');
+eq(C.anchorDayToUTC('D:07', 'garbage'), null, 'bad UTC text -> null');
+
+/* silent pairing split: two one-name master rows, one two-name hotel row */
+{
+  const m1 = rec('master', { names: ['Bob, Nancy'], ciD: '8JUL26', coD: '10JUL26', inF: '1507', pair: 'SDKJ', srcRow: 3 });
+  const m2 = rec('master', { names: ['Bob, Tai Wai David'], ciD: '8JUL26', coD: '10JUL26', inF: '1507', pair: 'KJWE', srcRow: 4 });
+  const h = rec('hotel', { names: ['Bob, Nancy', 'Bob, Tai Wai David'], ciD: '8JUL26', coD: '10JUL26', inF: '1507',
+    pair: 'Pairing short code SDKJ', ciT: '05:32', coT: '03:45', srcRow: 2 });
+  const res = C.foldSplitPairings(C.matchRows([m1, m2], [h]));
+  eq(res.matches.length, 1, 'one match after fold');
+  eq(res.newMaster.length, 0, 'no new row proposed for the split pairing');
+  const items = C.diffPair(res.matches[0].m, h);
+  eq(items.filter(i => i.cat === 'name').length, 0, 'no name changes on the folded row');
+  const pairItem = items.find(i => i.col === 11);
+  eq(pairItem.newText, 'Pairing short code SDKJ, KJWE', 'combined pairing in the required format');
+}
+
+/* check-in immutability: past check-ins locked, check-out still updatable */
+{
+  const m = rec('master', { names: ['JOE, VINCENT'], ciD: '7JUL26', ciT: '06:00', inF: '1507', coD: '9JUL26', coT: '04:15' });
+  const h = rec('hotel',  { names: ['JOE, VINCENT'], ciD: '7JUL26', ciT: '05:18', inF: '1507', coD: '9JUL26', coT: '05:00' });
+  const open = C.diffPair(m, h);
+  eq(open.map(i => i.label).sort(), ['Check-in time', 'Check-out time'], 'unlocked: both diffs proposed');
+  const locked = C.diffPair(m, h, { lockCI: true });
+  eq(locked.map(i => i.label), ['Check-out time'], 'locked: check-in change suppressed, check-out kept');
 }
 
 /* hotel similarity */

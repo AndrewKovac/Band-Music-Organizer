@@ -427,7 +427,7 @@
       <div class="chips" id="chips"></div>
       <div class="spacer" style="flex:1"></div>
       <input type="text" id="search" placeholder="Filter by name, flight, date…" aria-label="Filter bookings">
-      <label class="showunch" id="unchwrap"><input type="checkbox" id="show-unch" checked> Show untouched rows</label>
+      <label class="showunch" id="unchwrap"><input type="checkbox" id="show-unch"> Show all rows</label>
       <button class="small" id="btn-all">Approve all</button>
       <button class="small" id="btn-none">Clear all</button>
     </div>
@@ -449,6 +449,7 @@
     <div class="row">
       <span class="cnt">New page name:&nbsp; <span class="tabname" id="tabname-out"></span></span>
       <button class="primary" id="btn-copy">Copy page to clipboard</button>
+      <button id="btn-download" title="Save an Excel-openable file with all formatting (Excel may show a one-time format notice)">Download for Excel</button>
       <span id="copymsg" class="cnt" aria-live="polite"></span>
     </div>
     <ol class="steps-inline">
@@ -463,7 +464,7 @@
   <footer>
     Hotel Sheet Sync runs entirely inside this one file, in your browser — it never uploads, saves or
     transmits anything, and works with the network disconnected. Refreshing the page clears all loaded data.<br>
-    Cargojet Crew Travel internal tool · v1.5 · Excel parsing by SheetJS Community Edition (Apache-2.0).
+    Cargojet Crew Travel internal tool · v1.6 · Excel parsing by SheetJS Community Edition (Apache-2.0).
   </footer>
 </div>
 
@@ -668,24 +669,105 @@ function isHeaderGridRow(g){
   return hits>=2;
 }
 
+/* ---------- header-driven column mapping ----------
+   Real VMO exports have extra columns (Arrive to / Arrive From / Depart to /
+   UTC timestamps) that shift every field, so columns are located by their
+   header names. Falls back to the standard positional layout when no header
+   row exists.                                                              */
+function headerField(t){
+  t=canonText(t);
+  if(/^HOTEL ?NAME$/.test(t)) return 'hotel';
+  if(/^HOTEL ?LOCATION$/.test(t)) return 'loc';
+  if(/^CHECK[ \-]?IN ?TIME$/.test(t)) return 'cit';
+  if(/^CHECK[ \-]?IN ?DATE$/.test(t)) return 'cid';
+  if(/^INBOUND( FLIGHT| FLT)?$/.test(t)) return 'inf';
+  if(/^CHECK[ \-]?OUT ?TIME$/.test(t)) return 'cot';
+  if(/^CHECK[ \-]?OUT ?DATE$/.test(t)) return 'cod';
+  if(/^OUTBOUND( FLIGHT| FLT)?$/.test(t)) return 'outf';
+  if(/^NAME ?1$/.test(t)) return 'n1';
+  if(/^NAME ?2$/.test(t)) return 'n2';
+  if(/^NAME ?3$/.test(t)) return 'n3';
+  if(/^PAIRING( ?SHORT ?CODE| CODE)?$/.test(t)) return 'pair';
+  if(/^(NOTES?|COMMENTS?)$/.test(t)) return 'notes';
+  if(/^CONF/.test(t)) return 'conf1';
+  if(/^CHECK[ \-]?IN ?\(UTC\)$/.test(t)) return 'ciu';
+  if(/^CHECK[ \-]?OUT ?\(UTC\)$/.test(t)) return 'cou';
+  return null;
+}
+function buildColMap(grid){
+  for(var r=0;r<Math.min(grid.length,10);r++){
+    var map={}, hits=0;
+    (grid[r]||[]).forEach(function(c,ci){
+      var f=headerField(dispOf(c));
+      if(f && map[f]==null){ map[f]=ci; hits++; }
+    });
+    if(hits>=4){
+      if(map.conf1!=null){ map.conf2=map.conf1+1; map.conf3=map.conf1+2; }  /* merged "Confirmation Numbers" */
+      return {row:r,map:map};
+    }
+  }
+  return null;
+}
+
+/* Anchor a bare day-of-month ('D:07') to a full date using the row's UTC
+   timestamp ('2026-07-07T10:18'). UTC can run a day ahead of local (or roll
+   a month boundary) — the local day number wins, UTC supplies month/year.  */
+function anchorDayToUTC(dayCanon,utcText){
+  var m=String(utcText||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!m) return null;
+  var d=dayOf(dayCanon);
+  if(d==null||dayCanon.slice(0,2)!=='D:') return null;
+  var y=+m[1], mo=+m[2], ud=+m[3];
+  if(Math.abs(ud-d)<=2) return isoParts(y,mo,d);
+  if(d-ud>25){ mo--; if(mo===0){mo=12;y--;} return isoParts(y,mo,d); }   /* local 30th, UTC 1st */
+  if(ud-d>25){ mo++; if(mo===13){mo=1;y++;} return isoParts(y,mo,d); }
+  return null;
+}
+var MONTH_TITLE=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDayMon(iso){ var p=iso.split('-'); return (+p[2])+'-'+MONTH_TITLE[+p[1]-1]; }
+
 function parseRows(grid,kind){
   var rows=[], lastHotelCanon='', lastHotelDisp='';
+  var cm=buildColMap(grid);
+  var M=cm?cm.map:null;
+  /* with a header row present, a field its headers don't name simply doesn't
+     exist in this file — never fall back to a positional guess              */
+  function colOf(f,fallback){ return M ? (M[f]!=null?M[f]:-1) : fallback; }
+  var C_HOT=colOf('hotel',0), C_LOC=colOf('loc',1), C_CIT=colOf('cit',2), C_CID=colOf('cid',3),
+      C_INF=colOf('inf',4), C_COT=colOf('cot',5), C_COD=colOf('cod',6), C_OUF=colOf('outf',7),
+      C_N1=colOf('n1',8), C_N2=colOf('n2',9), C_N3=colOf('n3',10), C_PAIR=colOf('pair',11),
+      C_NOTES=colOf('notes',(kind==='hotel')?15:12),
+      C_C1=colOf('conf1',12), C_C2=colOf('conf2',13), C_C3=colOf('conf3',14),
+      C_CIU=(M&&M.ciu!=null)?M.ciu:null, C_COU=(M&&M.cou!=null)?M.cou:null;
   for(var r=0;r<grid.length;r++){
+    if(cm && r===cm.row) continue;
     var g=grid[r]||[];
     if(isHeaderGridRow(g)) continue;
     var d=function(i){ return dispOf(g[i]); };
     var rec={
       srcRow:r, kind:kind,
-      disp:[], hotel:canonText(d(0)),
-      ciTime:canonTime(g[2]), ciDate:canonDate(g[3]), inFlt:canonFlight(d(4)),
-      coTime:canonTime(g[5]), coDate:canonDate(g[6]), outFlt:canonFlight(d(7)),
-      names:[d(8),d(9),d(10)],
-      nameKeys:[nameKey(d(8)),nameKey(d(9)),nameKey(d(10))],
-      pairing:canonPairing(d(11))
+      disp:[], hotel:canonText(d(C_HOT)),
+      ciTime:canonTime(g[C_CIT]), ciDate:canonDate(g[C_CID]), inFlt:canonFlight(d(C_INF)),
+      coTime:canonTime(g[C_COT]), coDate:canonDate(g[C_COD]), outFlt:canonFlight(d(C_OUF)),
+      names:[d(C_N1),d(C_N2),d(C_N3)],
+      nameKeys:[nameKey(d(C_N1)),nameKey(d(C_N2)),nameKey(d(C_N3))],
+      pairing:canonPairing(d(C_PAIR))
     };
-    var width=(kind==='hotel')?16:13;
-    for(var i=0;i<width;i++) rec.disp.push(d(i));
-    rec.notes=(kind==='hotel')?d(15):d(12);
+    /* canonical-positional display row, whatever the physical layout was */
+    rec.disp=[d(C_HOT),d(C_LOC),d(C_CIT),d(C_CID),d(C_INF),d(C_COT),d(C_COD),d(C_OUF),
+              d(C_N1),d(C_N2),d(C_N3),d(C_PAIR)];
+    if(kind==='hotel'){ rec.disp.push(d(C_C1),d(C_C2),d(C_C3),d(C_NOTES)); }
+    else rec.disp.push(d(C_NOTES));
+    rec.notes=d(C_NOTES);
+    /* anchor bare day-number dates to the UTC timestamps when present */
+    if(C_CIU!=null && rec.ciDate.slice(0,2)==='D:'){
+      var aci=anchorDayToUTC(rec.ciDate,d(C_CIU));
+      if(aci){ rec.ciDate=aci; rec.disp[3]=fmtDayMon(aci); }
+    }
+    if(C_COU!=null && rec.coDate.slice(0,2)==='D:'){
+      var aco=anchorDayToUTC(rec.coDate,d(C_COU));
+      if(aco){ rec.coDate=aco; rec.disp[6]=fmtDayMon(aco); }
+    }
     /* master sheets often leave the hotel name blank (or merged) on
        continuation rows — carry the last seen hotel name downward     */
     if(kind==='master'){
@@ -766,6 +848,51 @@ function matchRows(masterRows,hotelRows){
   return {matches:matches, newMaster:freeM, cancelledHotel:freeH};
 }
 
+/* ---------- silent pairing splits ----------
+   When a pairing splits, the VMO lists the same stay as separate one-name
+   rows. The hotel row keeps both guests: fold the leftover master row into
+   the existing match instead of proposing a new row, and combine distinct
+   pairing codes as "Pairing short code X, Y".                              */
+function foldSplitPairings(res){
+  var keep=[];
+  res.newMaster.forEach(function(nm){
+    var nmKeys=nm.nameKeys.filter(Boolean);
+    if(!nmKeys.length){ keep.push(nm); return; }
+    var target=null;
+    for(var i=0;i<res.matches.length;i++){
+      var mt=res.matches[i];
+      if(!dateEq(nm.ciDate,mt.m.ciDate)||!dateEq(nm.coDate,mt.m.coDate)) continue;
+      var hK={}; mt.h.nameKeys.forEach(function(k){ if(k) hK[k]=1; });
+      if(!nmKeys.every(function(k){ return hK[k]; })) continue;
+      var mKeys=mt.m.nameKeys.filter(Boolean);
+      if(!mKeys.every(function(k){ return hK[k]; })) continue;
+      var uni={}; mKeys.concat(nmKeys).forEach(function(k){ uni[k]=1; });
+      if(Object.keys(uni).length>Object.keys(hK).length) continue;
+      target=mt; break;
+    }
+    if(!target){ keep.push(nm); return; }
+    var m1=target.m, merged={};
+    for(var k in m1) merged[k]=m1[k];
+    merged.disp=m1.disp.slice();
+    merged.names=target.h.names.slice();
+    merged.nameKeys=target.h.nameKeys.slice();
+    for(var n=0;n<3;n++) merged.disp[8+n]=target.h.disp[8+n]||'';
+    if(m1.pairing && nm.pairing && m1.pairing!==nm.pairing){
+      var codes=(m1.srcRow<=nm.srcRow)?[m1.pairing,nm.pairing]:[nm.pairing,m1.pairing];
+      merged.pairing=codes.join(', ');
+      merged.disp[11]='Pairing short code '+codes.join(', ');
+      merged.pairingCombined=true;
+    }else if(!m1.pairing && nm.pairing){
+      merged.pairing=nm.pairing;
+      merged.disp[11]=nm.disp[11]||nm.pairing;
+    }
+    target.m=merged;
+    if(target.why.indexOf('pairing split')<0) target.why+=' · pairing split kept on one row';
+  });
+  res.newMaster=keep;
+  return res;
+}
+
 /* ---------- diff one matched pair ---------- */
 var SCHED_FIELDS=[
   {col:2,label:'Check-in time', key:'ciTime'},
@@ -781,9 +908,11 @@ function pairingBothText(oldT,newT){
   return normWS(oldT) ? normWS(oldT)+', '+normWS(newT) : newT;
 }
 
-function diffPair(m,h){
+function diffPair(m,h,opts){
+  var lockCI=!!(opts&&opts.lockCI);
   var items=[];
   SCHED_FIELDS.forEach(function(f){
+    if(lockCI && (f.col===2||f.col===3)) return;   /* check-in already happened: locked & firm */
     var a=h[f.key], b=m[f.key];
     var eq = f.isDate ? (dateEq(a,b)||a===b) : a===b;
     if(!eq && b!=='')
@@ -815,9 +944,11 @@ function diffPair(m,h){
       }
     }
   }
-  if(m.pairing!=='' && m.pairing!==h.pairing)
-    items.push({col:11,label:'Pairing code',oldText:h.disp[11],newText:m.disp[11],cat:'schedule',
-                canBoth:normWS(h.disp[11])!=='',mode:'replace'});
+  /* pairing codes churn constantly and are NOT reliable change indicators —
+     a code difference alone is never proposed. The one exception: a silent
+     pairing split, where the combined "Pairing short code X, Y" is written. */
+  if(m.pairingCombined && m.pairing!=='' && m.pairing!==h.pairing)
+    items.push({col:11,label:'Pairing code',oldText:h.disp[11],newText:m.disp[11],cat:'schedule'});
   var mN=canonText(m.notes), hN=canonText(h.notes);
   if(mN!=='' && mN!==hN)
     items.push({col:15,label:'Notes',oldText:h.notes,newText:m.notes,cat:'schedule'});
@@ -927,10 +1058,16 @@ function insertionSrcRow(newRec,hotelRows){
   return Infinity;
 }
 
+var FOOTER_TEXT='Property of CargoJet Crew Scheduling Group';
+
 /* hotelGrid: raw grid.  updates: [{srcRow, items:[...]}]  cancels: [srcRow]
    news: [masterRec]  hotelRows: parsed rows (for chronological insertion)  */
 function buildOutput(hotelGrid,updates,cancels,news,hotelRows){
-  var base=hotelGrid.map(function(g){
+  /* drop any footer/notes rows trailing the data, then re-append our own */
+  var lastData=-1;
+  (hotelRows||[]).forEach(function(r){ if(r.srcRow>lastData) lastData=r.srcRow; });
+  var srcGrid=(lastData>=0)?hotelGrid.slice(0,lastData+1):hotelGrid;
+  var base=srcGrid.map(function(g){
     var row=[];
     for(var c=0;c<16;c++) row.push({text:dispOf((g||[])[c]),fill:null,strike:false});
     return row;
@@ -962,6 +1099,9 @@ function buildOutput(hotelGrid,updates,cancels,news,hotelRows){
     out.push(base[r]);
   }
   pend.forEach(function(p){ out.push(p.cells); });
+  var footer=[];
+  for(var fc=0;fc<16;fc++) footer.push({text:fc===0?FOOTER_TEXT:'',fill:null,strike:false});
+  out.push(footer);
   return out;
 }
 
@@ -1047,7 +1187,9 @@ if(typeof module!=='undefined'&&module.exports){
     masterDateWindow:masterDateWindow,inWindow:inWindow,fmtWindow:fmtWindow,
     windowFromInputs:windowFromInputs,dateCmp:dateCmp,dayOf:dayOf,
     insertionSrcRow:insertionSrcRow,pairingBothText:pairingBothText,
-    canonPairing:canonPairing,isPastISO:isPastISO,isoParts:isoParts};
+    canonPairing:canonPairing,isPastISO:isPastISO,isoParts:isoParts,
+    headerField:headerField,buildColMap:buildColMap,anchorDayToUTC:anchorDayToUTC,
+    foldSplitPairings:foldSplitPairings,FOOTER_TEXT:FOOTER_TEXT,fmtDayMon:fmtDayMon};
 }
 </script>
 
@@ -1359,32 +1501,34 @@ if(typeof module!=='undefined'&&module.exports){
     var canons=selectedHotelCanons();
     if(!canons.length){ refreshCompareState(); return; }
     /* the master only covers the selected date window — hotel bookings outside
-       it are out of scope: never matched, never proposed as cancellations.
-       Bookings that already checked in (before today) are historical: also
-       untouched, and past master rows can't generate proposals either.       */
+       it are out of scope. Past check-ins are locked & firm: matched rows can
+       still take check-OUT updates, but check-in fields are never touched,
+       started stays are never cancelled, and no new row is created in the past. */
     var now=new Date();
     var todayISO=isoParts(now.getFullYear(),now.getMonth()+1,now.getDate());
-    var masterRows=S.master.rows.filter(function(r){
-      return canons.indexOf(r.hotel)>=0 && !isPastISO(r.ciDate,todayISO);
-    });
+    var masterRows=S.master.rows.filter(function(r){ return canons.indexOf(r.hotel)>=0; });
     var win=currentWindow();
-    var inScope=[], outside=[], past=[];
+    var inScope=[], outside=[];
     S.hotel.rows.forEach(function(h){
-      if(!inWindow(win,h.ciDate)) outside.push(h);
-      else if(isPastISO(h.ciDate,todayISO)) past.push(h);
-      else inScope.push(h);
+      (inWindow(win,h.ciDate)?inScope:outside).push(h);
     });
-    var res=matchRows(masterRows,inScope);
+    var res=foldSplitPairings(matchRows(masterRows,inScope));
     var updates=[],unchanged=[];
     res.matches.forEach(function(mt){
-      var items=diffPair(mt.m,mt.h).map(function(it){ it.ck=false; return it; });
+      var lock=isPastISO(mt.h.ciDate,todayISO);
+      var items=diffPair(mt.m,mt.h,{lockCI:lock}).map(function(it){ it.ck=false; return it; });
       if(items.length) updates.push({m:mt.m,h:mt.h,why:mt.why,items:items});
       else unchanged.push(mt);
     });
+    var cancels=[], past=[];
+    res.cancelledHotel.forEach(function(h){
+      (isPastISO(h.ciDate,todayISO)?past:cancels).push(h);
+    });
+    var news=res.newMaster.filter(function(m){ return !isPastISO(m.ciDate,todayISO); });
     S.result={updates:updates,unchanged:unchanged,win:win,
               outside:outside,past:past,
-              news:res.newMaster.map(function(m){return {m:m,ck:false};}),
-              cancels:res.cancelledHotel.map(function(h){return {h:h,ck:false};})};
+              news:news.map(function(m){return {m:m,ck:false};}),
+              cancels:cancels.map(function(h){return {h:h,ck:false};})};
     buildEntries();
     renderReview();
     showCard('step3');
@@ -1956,6 +2100,29 @@ if(typeof module!=='undefined'&&module.exports){
       done(ok);
     }catch(e){ done(false); }
   }
+
+  /* Excel-openable download: HTML table with mso styling saved as .xls keeps
+     fills, strikethrough, widths, wrap and alignment (CE xlsx writers drop
+     styles, so this is the format-faithful route).                          */
+  $('btn-download').addEventListener('click',function(){
+    if(!S.output) return;
+    try{
+      var doc='<html xmlns:o="urn:schemas-microsoft-com:office:office" '+
+        'xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">'+
+        '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>'+
+        '<x:Name>'+escHtml(tabName())+'</x:Name>'+
+        '<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'+
+        '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->'+
+        '</head><body>'+outputToClipboardHtml(S.output)+'</body></html>';
+      var blob=new Blob(['﻿',doc],{type:'application/vnd.ms-excel'});
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=tabName().replace(/\s+/g,'_')+'.xls';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+      toast('Saved — Excel opens it with all formatting intact');
+    }catch(err){ fatal('Download failed:\n'+(err&&err.stack||err)); }
+  });
 
   refreshStepper();
   refreshCompareState();

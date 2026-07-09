@@ -72,15 +72,25 @@ number ("4", "7") are understood.
   (A 127px · B–F 96 · G–H 103 · I–J 170 · K 56 · L 162 · M–P 96) plus
   left-justified, vertically-centred, wrap-on formatting for every cell — paste
   and it looks right with no manual formatting.
-- **Pairing codes**: the boilerplate prefix hotels type ("Pairing short code
-  97PR") is stripped, so it compares equal to the master's bare "97PR". When
-  the *code itself* changed, approve it as *replace* or as *keep both*
-  ("ABCD, DCBA") — hover the cell for both options, or use the dropdown in the
-  change list. A matching pairing code + check-in date is also the strongest
-  row-matching signal, so a booking is recognised even when the whole crew
-  swapped (or is still "TBA CA / TBA FO").
-- **Historical bookings**: anything that checked in before today is tagged
-  *Historical* and never proposed for cancellation or edits.
+- **VMO master exports parse natively**: columns are located by their header
+  names (the extra Arrive to / Arrive From / Depart to columns don't shift
+  anything), and bare day-number dates are anchored to full dates using the
+  Check-in(UTC)/Check-Out(UTC) timestamps.
+- **Pairing codes are never change proposals**: they churn constantly, so a
+  code difference alone is ignored. Matching still uses them (equal code +
+  check-in date is the strongest signal). The one write happens on a **silent
+  pairing split** — when the master lists one hotel row's crew as separate
+  rows, the hotel row is kept whole and its pairing cell becomes
+  "Pairing short code X, Y". No new row is created.
+- **Check-in immutability**: a check-in that has already occurred is locked —
+  no check-in date/time proposals, no cancellation of a started stay, no new
+  rows in the past. Check-OUT updates on such rows still flow through.
+  Unmatched past rows appear as *Historical*, untouched.
+- **Delta view by default**: the review opens showing changed items only;
+  "Show all rows" reveals unchanged/out-of-range/historical bookings.
+- **Footer**: trailing notes under the data are dropped and the output always
+  ends with "Property of CargoJet Crew Scheduling Group". A "Download for
+  Excel" button saves the formatted page as an Excel-openable file.
 - **Calibration**: the `dev/` folder holds the full test pipeline, including
   golden fixtures built from real (fake-data) spreadsheets. Any wrong
   suggestion seen in the field becomes a fixture there before it is fixed, so

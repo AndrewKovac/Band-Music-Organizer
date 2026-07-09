@@ -77,10 +77,24 @@ function ok(msg) { console.log('  ✓ ' + msg); }
   await page.waitForSelector('#step3:not(.hidden)');
 
   const chips = await page.textContent('#chips');
-  for (const want of ['3 schedule', '1 name', '1 new', '2 possible cancellation', '1 unchanged', '2 outside window']) {
+  for (const want of ['2 schedule', '1 name', '1 new', '2 possible cancellation', '1 unchanged', '2 outside window']) {
     if (!chips.includes(want)) fail('chip missing "' + want + '" — got: ' + chips);
   }
   ok('summary chips correct: ' + chips.replace(/\s+/g, ' ').trim());
+
+  // ---- delta filtering is the default: untouched rows hidden until asked for ----
+  if (await page.isChecked('#show-unch')) fail('"Show all rows" must default to unchecked');
+  if (await page.locator('#gridwrap .bk.k-unchanged').first().isVisible())
+    fail('unchanged cards should be hidden by default');
+  await page.check('#show-unch');
+  if (!await page.locator('#gridwrap .bk.k-unchanged').first().isVisible())
+    fail('ticking "Show all rows" should reveal untouched cards');
+  ok('review defaults to changed items only; checkbox reveals the full list');
+
+  // ---- ordinary pairing-code churn is not a proposal ----
+  if (await page.locator('#gridwrap td.d', { hasText: 'P5519' }).count() !== 0)
+    fail('a pairing-code difference alone must not be an outlined proposal');
+  ok('pairing-code churn (P5519 vs P5520) produces no proposal');
 
   // ---- master window: 30JUL and 02AUG bookings are out of range, NOT cancellations ----
   for (const marker of ['30JUL', '02AUG']) {
@@ -102,7 +116,7 @@ function ok(msg) { console.log('  ✓ ' + msg); }
     can: document.querySelectorAll('#gridwrap td.d.c-cancel').length,
     masterRows: document.querySelectorAll('#gridwrap tr.rmaster').length
   }));
-  if (counts.sched !== 3) fail('expected 3 outlined schedule cells, got ' + counts.sched);
+  if (counts.sched !== 2) fail('expected 2 outlined schedule cells, got ' + counts.sched);
   if (counts.name !== 1) fail('expected 1 outlined name cell, got ' + counts.name);
   if (counts.newC !== 16) fail('expected 16 green cells (1 new row), got ' + counts.newC);
   if (counts.can !== 32) fail('expected 32 red cells (2 cancel rows), got ' + counts.can);
@@ -130,17 +144,6 @@ function ok(msg) { console.log('  ✓ ' + msg); }
     await page.locator('#gridwrap td.d:not(.appr)', { hasText: text }).first().click();
     await page.keyboard.press('Escape');
   }
-  // pairing code: approve via the tooltip's "Keep both" option
-  const pairCell = page.locator('#gridwrap td.d.c-sched:not(.appr)', { hasText: 'P5519' });
-  await pairCell.hover();
-  await page.waitForSelector('#tip.show');
-  const tipBtns = await page.$$eval('#tip button', bs => bs.map(b => b.textContent));
-  if (tipBtns.length !== 2 || !/Keep both/.test(tipBtns[1])) fail('pairing tooltip missing keep-both: ' + JSON.stringify(tipBtns));
-  await page.click('#tip button[data-tip-mode="both"]');
-  await page.keyboard.press('Escape');
-  const combined = await page.locator('#gridwrap td.d.appr', { hasText: 'P5519, P5520' }).count();
-  if (combined !== 1) fail('pairing cell should show combined "P5519, P5520" after keep-both');
-  ok('pairing code approved as "keep both" → cell shows "P5519, P5520"');
   await page.locator('#gridwrap td.d.c-new').first().click();       // new booking row
   await page.keyboard.press('Escape');
   const millerRow = page.locator('#gridwrap tr', { hasText: 'MILLER MIKE' });
@@ -148,8 +151,8 @@ function ok(msg) { console.log('  ✓ ' + msg); }
   await page.keyboard.press('Escape');
 
   const count = await page.textContent('#approve-count');
-  if (!count.includes('6') || !count.includes('of 7')) fail('expected 6 of 7 approved, got: ' + count);
-  ok('6 of 7 approved by clicking grid cells (loadmaster row left alone)');
+  if (!count.includes('5') || !count.includes('of 6')) fail('expected 5 of 6 approved, got: ' + count);
+  ok('5 of 6 approved by clicking grid cells (loadmaster row left alone)');
 
   const newConf = await page.locator('#gridwrap tr', { hasText: 'WILSON WENDY' }).locator('td').nth(13).textContent();
   if (!newConf.includes('NEW')) fail('approved new row conf1 should show NEW, got ' + newConf);
@@ -163,8 +166,8 @@ function ok(msg) { console.log('  ✓ ' + msg); }
     checked: [...document.querySelectorAll('#groups input[type=checkbox]')].filter(c => c.checked).length,
     total: document.querySelectorAll('#groups input[type=checkbox]').length
   }));
-  if (sync.checked !== 6 || sync.total !== 7) fail('card view out of sync: ' + JSON.stringify(sync));
-  ok('change-list view shows the same 6/7 approvals (views share state)');
+  if (sync.checked !== 5 || sync.total !== 6) fail('card view out of sync: ' + JSON.stringify(sync));
+  ok('change-list view shows the same 5/6 approvals (views share state)');
   await page.click('#view-grid');
 
   // ---- build output ----
@@ -196,7 +199,7 @@ function ok(msg) { console.log('  ✓ ' + msg); }
   has(check.brownTime, '16:30', 'background:#ffff00', 'Brown time change yellow');
   has(check.adamsName2, 'CARTER CHRIS', 'background:#a6c9ec', 'Adams FO name blue');
   if (check.adamsConf2.trim() !== 'CNF88614') fail('conf number changed! ' + check.adamsConf2);
-  has(check.adamsPair, 'P5519, P5520', 'background:#ffff00', 'pairing kept-both, yellow');
+  has(check.adamsPair, 'P5519', null, 'pairing code untouched despite churn');
   has(check.garciaDate, '28JUL', 'background:#ffff00', 'Garcia date shift yellow');
   has(check.miller, 'MILLER MIKE', 'background:#ff0000', 'Miller cancelled red');
   if (!check.miller.s.includes('line-through')) fail('Miller not struck through');
@@ -204,7 +207,13 @@ function ok(msg) { console.log('  ✓ ' + msg); }
   has(check.wendy.name, 'WILSON WENDY', 'background:#b5e6a2', 'Wendy new row green');
   has(check.wendy.conf1, 'NEW', 'background:#b5e6a2', 'Wendy conf1 = NEW');
   if (check.wendy.notes.t !== 'Late arrival') fail('notes not mapped M->P');
-  if (check.totalRows !== 10) fail('expected 10 output rows (header + 8 hotel + 1 new), got ' + check.totalRows);
+  if (check.totalRows !== 11) fail('expected 11 output rows (header + 8 hotel + 1 new + footer), got ' + check.totalRows);
+  const lastRow = await page.evaluate(() => {
+    const rows = document.querySelectorAll('#previewbox table tr');
+    return rows[rows.length - 1].textContent;
+  });
+  if (!lastRow.includes('Property of CargoJet Crew Scheduling Group')) fail('property footer missing, got: ' + lastRow);
+  ok('property footer appended as the final row');
   const outCheck = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('#previewbox table tr')].slice(1);
     const hit = rows.find(r => [...r.children].some(td => td.textContent.includes('PETERS PAUL')));
@@ -245,6 +254,13 @@ function ok(msg) { console.log('  ✓ ' + msg); }
     if (!clip.includes(geom)) fail('clipboard missing paste geometry: ' + geom);
   }
   ok('clipboard carries fills, strikethrough, column widths, wrap and alignment');
+  if (!clip.includes('Property of CargoJet Crew Scheduling Group')) fail('clipboard missing property footer');
+
+  // ---- Excel download ----
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btn-download')]);
+  const fname = dl.suggestedFilename();
+  if (!/\.xls$/.test(fname)) fail('download should be a .xls file, got ' + fname);
+  ok('Download for Excel produces ' + fname);
 
   await browser.close();
   console.log('E2E PASSED');
