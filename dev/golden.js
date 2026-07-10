@@ -48,7 +48,7 @@ function who(rec) {
   return (rec.names.find(n => C.normWS(n) !== '') || '(no names)').toUpperCase().replace(/\s+/g, ' ').trim();
 }
 
-function runFixture(name) {
+async function runFixture(name) {
   console.log('\n════════ fixture: ' + name + ' ════════');
   const mFile = path.join(FIX_DIR, name + '.master.xlsx');
   const hFile = path.join(FIX_DIR, name + '.hotel.xlsx');
@@ -56,14 +56,17 @@ function runFixture(name) {
   const exp = fs.existsSync(eFile) ? JSON.parse(fs.readFileSync(eFile, 'utf8')) : null;
 
   // --- load & parse exactly like the tool ---
-  const mWb = XLSX.read(fs.readFileSync(mFile), { type: 'buffer' });
-  const hWb = XLSX.read(fs.readFileSync(hFile), { type: 'buffer' });
+  const mBuf = new Uint8Array(fs.readFileSync(mFile));
+  const hBuf = new Uint8Array(fs.readFileSync(hFile));
+  const mWb = XLSX.read(mBuf, { type: 'buffer', cellStyles: true });
+  const hWb = XLSX.read(hBuf, { type: 'buffer', cellStyles: true });
   const mSheet = (exp && exp.masterSheet) || mWb.SheetNames[0];
   const hSheet = (exp && exp.hotelSheet) || hWb.SheetNames[hWb.SheetNames.length - 1];
   console.log(`master: ${path.basename(mFile)} [${mSheet}]   hotel: ${path.basename(hFile)} [${hSheet}]`);
 
   const mGrid = C.sheetToGrid(mWb.Sheets[mSheet]);
   const hGrid = C.sheetToGrid(hWb.Sheets[hSheet]);
+  hGrid._styles = await C.readStyleGrid(hBuf, hSheet, hWb.Styles);
   const mRows = C.parseRows(mGrid, 'master');
   const hRows = C.parseRows(hGrid, 'hotel');
 
@@ -92,17 +95,22 @@ function runFixture(name) {
     : C.masterDateWindow(mRows);
   console.log('window: ' + (win ? C.fmtWindow(win) : '(none — everything in scope)'));
 
-  // same pipeline as the tool's doCompare (expected.json may pin "today" so
-  // past/future classification stays stable no matter when the suite runs)
+  // same pipeline as the tool's doCompare (expected.json may pin "today"/"now"
+  // so past/future classification stays stable no matter when the suite runs)
   const now = new Date();
   const todayISO = (exp && exp.today) ||
     C.isoParts(now.getFullYear(), now.getMonth() + 1, now.getDate());
   const nowHM = (exp && exp.now) ||
     (('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2));
-  const inScope = [], outside = [];
-  hRows.forEach(h => (C.inWindow(win, h.ciDate) ? inScope : outside).push(h));
 
-  const res = C.foldSplitPairings(C.matchRows(masterRows, inScope));
+  const inScope = [], outside = [], gone = [];
+  hRows.forEach(h => {
+    if (h.cancelledPrior) gone.push(h);
+    else if (C.inWindow(win, h.ciDate)) inScope.push(h);
+    else outside.push(h);
+  });
+
+  const res = C.foldSplitPairings(C.matchRows(masterRows, inScope, todayISO));
   const updates = [], unchanged = [];
   res.matches.forEach(mt => {
     const items = C.diffPair(mt.m, mt.h, { lockCI: C.isPastDT(mt.h.ciDate, mt.h.ciTime, todayISO, nowHM) });
@@ -126,6 +134,7 @@ function runFixture(name) {
   res.cancelledHotel.forEach(h => console.log(`CANCEL?   ${who(h)}  ciD=${h.ciDate}`));
   outside.forEach(h => console.log(`OUTSIDE   ${who(h)}  ciD=${h.ciDate}`));
   past.forEach(h => console.log(`PAST      ${who(h)}  ciD=${h.ciDate}`));
+  gone.forEach(h => console.log(`GONE      ${who(h)}  (grey/struck — cancelled earlier)`));
 
   // --- compare with expectations ---
   if (!exp || !exp.expect) { console.log('\n(no expected.json — report only)'); return; }
@@ -142,6 +151,7 @@ function runFixture(name) {
   checkSet('cancellations', namesOf(res.cancelledHotel), wantNames(E.cancel));
   checkSet('outside window', namesOf(outside), wantNames(E.outside));
   if (E.past) checkSet('historical', namesOf(past), wantNames(E.past));
+  if (E.gone) checkSet('cancelled earlier', namesOf(gone), wantNames(E.gone));
   checkSet('changed bookings', namesOf(updates), wantNames((E.updates || []).map(u => u.who)));
   (E.updates || []).forEach(eu => {
     const u = updates.find(x => who(x.h) === eu.who.toUpperCase());
@@ -169,6 +179,8 @@ const names = [...new Set(fs.readdirSync(FIX_DIR)
   .filter(f => f.endsWith('.master.xlsx'))
   .map(f => f.replace(/\.master\.xlsx$/, '')))].sort();
 if (!names.length) { console.log('no fixtures found — nothing to check'); process.exit(0); }
-names.forEach(runFixture);
-console.log('\n' + (failures ? `GOLDEN FAILED: ${failures} fixture(s) wrong` : `GOLDEN PASSED: ${names.length} fixture(s) clean`));
-process.exit(failures ? 1 : 0);
+(async () => {
+  for (const nm of names) await runFixture(nm);
+  console.log('\n' + (failures ? `GOLDEN FAILED: ${failures} fixture(s) wrong` : `GOLDEN PASSED: ${names.length} fixture(s) clean`));
+  process.exit(failures ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(1); });

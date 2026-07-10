@@ -1,15 +1,34 @@
 {
   "hotelSheet": "ORIG JUN 25",
-  "window": { "from": "22JUL26", "to": "27JUL26" },
+  "window": {
+    "from": "22JUL26",
+    "to": "27JUL26"
+  },
   "expect": {
     "updates": [
-      { "who": "JONES, ANDREW", "fields": ["Name 1"] },
-      { "who": "STEINBURG, JEREMY", "fields": ["Check-in time"] }
+      {
+        "who": "JONES, ANDREW",
+        "fields": [
+          "Name 1"
+        ]
+      },
+      {
+        "who": "STEINBURG, JEREMY",
+        "fields": [
+          "Check-in time"
+        ]
+      }
     ],
-    "new": ["WALKER, BRADY"],
-    "cancel": ["TBA CA"],
+    "new": [
+      "WALKER, BRADY"
+    ],
+    "cancel": [],
     "outside": [],
     "past": [],
-    "unchangedCount": 0
-  }
+    "unchangedCount": 0,
+    "gone": [
+      "TBA CA"
+    ]
+  },
+  "today": "2026-07-09"
 }

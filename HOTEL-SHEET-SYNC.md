@@ -86,6 +86,20 @@ number ("4", "7") are understood.
   no check-in date/time proposals, no cancellation of a started stay, no new
   rows in the past. Check-OUT updates on such rows still flow through.
   Unmatched past rows appear as *Historical*, untouched.
+- **Grey / struck-through = cancelled earlier**: the tool reads cell
+  formatting straight out of the .xlsx. A greyed or crossed-out *name* inside
+  a live row is a kept-for-the-record cancellation — never treated as a name
+  change, never overwritten. A fully struck/grey *row* is "Cancelled earlier":
+  never matched, never re-proposed, carried into the output with its
+  formatting intact.
+- **Name removals are red**: when the master drops one person from a shared
+  room, the name stays on the sheet painted red and struck through, and the
+  proposal is listed under *Possible cancellations* (it is a cancellation of
+  that person's spot, not a blue "name change").
+- **Separate stays never merge**: a match is rejected outright if it would
+  move a check-in by more than 2 days, so a pilot's next stay can never be
+  mistaken for an "extension" of the current one (no silently stretched —
+  and paid — hotel nights).
 - **Delta view by default**: the review opens showing changed items only;
   "Show all rows" reveals unchanged/out-of-range/historical bookings.
 - **Footer**: trailing notes under the data are dropped and the output always

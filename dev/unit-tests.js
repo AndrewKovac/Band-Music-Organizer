@@ -419,4 +419,75 @@ eq(C.anchorDayToUTC('D:07', 'garbage'), null, 'bad UTC text -> null');
 assert(C.hotelSimilarity('Hilton Anchorage', 'HILTON - ANCHORAGE DOWNTOWN') > 0.5, 'similar hotels score high');
 assert(C.hotelSimilarity('Hilton Anchorage', 'Marriott Fairbanks') === 0, 'different hotels score 0');
 
-console.log('ALL ' + n + ' ASSERTIONS PASSED (+ inline asserts)');
+/* THE MONEY GUARD: two separate stays for the same pilot must never merge */
+{
+  const hA = rec('hotel',  { names: ['Diaz, Pilot'], ciD: '7-Jul', ciT: '05:34', coD: '8-Jul', coT: '05:18', srcRow: 2 });
+  const mB = rec('master', { names: ['Diaz, Pilot'], ciD: '10-Jul', ciT: '02:10', coD: '10-Jul', coT: '05:45' });
+  const res = C.matchRows([mB], [hA], '2026-07-09');
+  eq(res.matches.length, 0, 'stays 3 days apart NEVER match (no silent stay-stretching)');
+  eq(res.newMaster.length, 1, 'the 10JUL booking is proposed as NEW');
+  eq(res.cancelledHotel.length, 1, 'the 07JUL row goes to the past guard, not a merge');
+  eq(C.dateDistDays(C.parseDateText('7-Jul'), C.parseDateText('10-Jul'), '2026-07-09'), 3, 'distance resolved across yearless dates');
+  // 1-day schedule slides still match (Garcia case)
+  const mG = rec('master', { names: ['GARCIA GLEN'], ciD: '28JUL', inF: 'AB980' });
+  const hG = rec('hotel',  { names: ['GARCIA GLEN'], ciD: '27JUL', inF: 'AB980' });
+  eq(C.matchRows([mG], [hG], '2026-07-09').matches.length, 1, 'a 1-day slide still matches');
+}
+
+/* removals: red, struck, name kept on the sheet */
+{
+  const m = rec('master', { names: ['ADAMS ALICE'], ciD: '25JUL', inF: 'AB941' });
+  const h = rec('hotel',  { names: ['ADAMS ALICE', 'BAKER BOB'], ciD: '25JUL', inF: 'AB941', confs: ['1', '2', ''], srcRow: 1 });
+  const items = C.diffPair(m, h);
+  eq(items.length, 1, 'one removal item');
+  eq(items[0].cat, 'removal', 'removal category (renders red, listed with cancellations)');
+  eq(items[0].newText, 'BAKER BOB', 'name kept on the sheet, not blanked');
+  const grid = [[{ v: 'Hotel Name' }, { v: 'Name 1' }],
+    [{ v: 'H' }, null, null, null, null, null, null, null, { v: 'ADAMS ALICE' }, { v: 'BAKER BOB' }]];
+  const out = C.buildOutput(grid, [{ srcRow: 1, items: [items[0]] }], [], [], [{ srcRow: 1, ciDate: '' }]);
+  eq(out[1][9].fill, '#ff0000', 'removed name painted red');
+  eq(out[1][9].strike, true, 'removed name struck through');
+  eq(out[1][9].text, 'BAKER BOB', 'removed name still visible on the page');
+}
+
+/* dead names: grey/struck cells are cancelled-earlier records, left alone */
+{
+  const grid = [
+    ['Hotel Name', 'Hotel Location', 'Check-in Time', 'Check-in Date', 'Inbound FLT', 'Check-Out Time',
+     'Check-Out Date', 'Outbound FLT', 'Name 1', 'Name 2', 'Name 3', 'Pairing Shortcode',
+     'Confirmation Numbers', '', '', 'Comments'].map(v => v ? { v } : null),
+    [{ v: 'H' }, { v: 'X' }, { v: '14:00' }, { v: '10-Jul' }, { v: 'AB1' }, null, null, null,
+     { v: 'Live, Larry' }, { v: 'Dead, Denny' }],
+    [{ v: 'H' }, { v: 'X' }, { v: '15:00' }, { v: '10-Jul' }, { v: 'AB2' }, null, null, null,
+     { v: 'Gone, Gary' }]
+  ];
+  grid._styles = {
+    '1,9': { strike: true, greyFont: true, fcolor: '808080', fill: null },
+    '2,0': { strike: true, greyFont: false, fcolor: null, fill: 'D9D9D9' },
+    '2,2': { strike: true }, '2,3': { strike: true }, '2,4': { strike: true }, '2,8': { strike: true }
+  };
+  const rows = C.parseRows(grid, 'hotel');
+  eq(rows[0].deadNames[1], true, 'greyed+struck name flagged dead');
+  eq(rows[0].nameKeys[1], '', 'dead name excluded from matching keys');
+  eq(rows[1].cancelledPrior, true, 'fully struck row flagged as cancelled earlier');
+  const m = rec('master', { names: ['Live, Larry'], ciD: '10-Jul', inF: 'AB1' });
+  const res = C.matchRows([m], [rows[0]], '2026-07-09');
+  eq(res.matches.length, 1, 'row matches on live crew alone');
+  eq(C.diffPair(m, rows[0]).length, 0, 'NO name change proposed — dead name left alone');
+}
+
+/* style extraction: strike/grey recovered by joining sheet XML with style tables */
+(async () => {
+  const fsm = require('fs');
+  const buf = new Uint8Array(fsm.readFileSync(__dirname + '/styled-test.xlsx'));
+  const wb = global.XLSX.read(buf, { type: 'buffer', cellStyles: true });
+  const sg = await C.readStyleGrid(buf, 'S', wb.Styles);
+  eq(!!sg, true, 'style grid extracted from the xlsx zip');
+  eq(sg['2,0'].strike, true, 'font strikethrough detected (CE alone cannot see this)');
+  eq(sg['2,0'].greyFont, true, 'grey font colour detected');
+  eq(sg['2,0'].fill, 'D9D9D9', 'grey fill detected');
+  eq(sg['2,2'].fill, 'FF0000', 'red fill detected');
+  eq(C.isDeadStyle(sg['2,0']), true, 'grey+struck = dead');
+  eq(C.isDeadStyle(sg['1,0'] || null), false, 'plain cells are not dead');
+  console.log('ALL ' + n + ' ASSERTIONS PASSED (+ inline asserts)');
+})().catch(e => { console.error(e); process.exit(1); });

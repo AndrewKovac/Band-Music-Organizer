@@ -262,6 +262,35 @@ function ok(msg) { console.log('  ✓ ' + msg); }
   if (!/\.xls$/.test(fname)) fail('download should be a .xls file, got ' + fname);
   ok('Download for Excel produces ' + fname);
 
+  // ---- grey/struck detection in the BROWSER (DecompressionStream path) ----
+  const page2 = await ctx.newPage();
+  page2.on('pageerror', e => fail('page2 error: ' + e.message));
+  await page2.goto('file://' + path.join(here, 'built.html'));
+  async function dropFile2(selector, filePath) {
+    const b64 = fs.readFileSync(filePath).toString('base64');
+    await page2.evaluate(({ selector, b64, name }) => {
+      const bin = atob(b64); const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const dt = new DataTransfer(); dt.items.add(new File([arr], name));
+      document.querySelector(selector).dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt }));
+    }, { selector, b64, name: path.basename(filePath) });
+  }
+  await dropFile2('#drop-master', path.join(here, 'fixtures/real5.master.xlsx'));
+  await page2.waitForSelector('#drop-master.loaded .okdot');
+  await dropFile2('#drop-hotel', path.join(here, 'fixtures/real5.hotel.xlsx'));
+  await page2.waitForSelector('#step2:not(.hidden)');
+  await page2.fill('#win-from', '09JUL26');
+  await page2.fill('#win-to', '13JUL26');
+  await page2.click('#btn-compare');
+  await page2.waitForSelector('#step3:not(.hidden)');
+  const chips2 = await page2.textContent('#chips');
+  if (!chips2.includes('1 cancelled earlier')) fail('browser missed the struck row: ' + chips2);
+  if (!chips2.includes('0 name')) fail('dead name wrongly proposed as a change: ' + chips2);
+  if (!chips2.includes('0 possible cancellation')) fail('struck row wrongly proposed for cancellation: ' + chips2);
+  const deadSpan = await page2.locator('#gridwrap .dead', { hasText: 'Dead, Denny' }).count();
+  if (deadSpan < 1) fail('dead name not rendered struck/dim in the grid');
+  ok('browser detects grey/struck rows: Denny left alone, Gary "cancelled earlier"');
+
   await browser.close();
   console.log('E2E PASSED');
 })().catch(e => fail(e.stack || String(e)));

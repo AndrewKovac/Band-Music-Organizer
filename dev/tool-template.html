@@ -7,7 +7,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c92c3a'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='900' font-style='italic' font-size='14' fill='white' text-anchor='middle'%3ECJ%3C/text%3E%3C/svg%3E">
 <title>Hotel Sheet Sync · Cargojet Crew Travel</title>
-<!-- Hotel Sheet Sync v1.8 -->
+<!-- Hotel Sheet Sync v1.9 -->
 <style>
   /* ---- Cargojet palette ----
      main #060000 · accent #c92c3a · header #5e6368 · text #858585  */
@@ -229,6 +229,8 @@
   td.appr.c-cancel{background:var(--cancel);color:#fff !important;text-decoration:line-through;}
   td.d:hover:not(.appr){background:rgba(255,255,255,.045);}
   .apprmark{font-size:10px;margin-left:5px;}
+  .dead{text-decoration:line-through;color:#6a655e;}
+  tr.gonerow td{text-decoration:line-through;color:#6a655e;}
 
   /* ---------- tooltip ---------- */
   #tip{position:fixed;z-index:50;background:#201717;border:1px solid #453232;border-radius:10px;
@@ -657,6 +659,98 @@ function sheetToGrid(ws){
   return grid;
 }
 
+/* ---------- cell formatting (grey / strikethrough = cancelled earlier) ----
+   SheetJS CE resolves fills onto cells but drops the per-cell style index,
+   so font strike/colour is recovered by reading the sheet XML straight out
+   of the .xlsx zip and joining it with the parsed style tables.           */
+function zipEntries(u8){
+  var i=u8.length-22;
+  while(i>=0 && !(u8[i]===0x50&&u8[i+1]===0x4b&&u8[i+2]===0x05&&u8[i+3]===0x06)) i--;
+  if(i<0) return [];
+  var dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  var count=dv.getUint16(i+10,true), p=dv.getUint32(i+16,true), out=[];
+  for(var k=0;k<count;k++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    var method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true),
+        nlen=dv.getUint16(p+28,true), elen=dv.getUint16(p+30,true), clen=dv.getUint16(p+32,true),
+        lho=dv.getUint32(p+42,true), name='';
+    for(var q=0;q<nlen;q++) name+=String.fromCharCode(u8[p+46+q]);
+    out.push({name:name,method:method,csize:csize,lho:lho});
+    p+=46+nlen+elen+clen;
+  }
+  return out;
+}
+async function zipRead(u8,name){
+  var e=zipEntries(u8).filter(function(x){return x.name===name;})[0];
+  if(!e) return null;
+  var dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  var nlen=dv.getUint16(e.lho+26,true), elen=dv.getUint16(e.lho+28,true);
+  var start=e.lho+30+nlen+elen;
+  var comp=u8.slice(start,start+e.csize);
+  if(e.method===0) return new TextDecoder().decode(comp);
+  if(typeof process!=='undefined'&&process.versions&&process.versions.node)
+    return require('zlib').inflateRawSync(Buffer.from(comp)).toString('utf8');
+  var stream=new Blob([comp]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return await new Response(stream).text();
+}
+function colLetterToIdx(a){
+  var n=0;
+  for(var i=0;i<a.length;i++) n=n*26+(a.charCodeAt(i)-64);
+  return n-1;
+}
+function isGreyHex(h){
+  if(!h||h.length<6) return false;
+  var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  return Math.max(r,g,b)-Math.min(r,g,b)<24 && (r+g+b)/3>=100 && (r+g+b)/3<=228;
+}
+function isRedHex(h){
+  if(!h||h.length<6) return false;
+  var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  return r>200&&g<90&&b<90;
+}
+/* returns {"row,col": {strike, greyFont, fcolor, fill}} for styled cells, or null */
+async function readStyleGrid(u8,sheetName,Styles){
+  try{
+    if(!Styles||!Styles.CellXf) return null;
+    var wbx=await zipRead(u8,'xl/workbook.xml');
+    var rels=await zipRead(u8,'xl/_rels/workbook.xml.rels');
+    if(!wbx||!rels) return null;
+    var rid=null, re=/<sheet\b[^>]*>/g, m;
+    while((m=re.exec(wbx))){
+      var tag=m[0], nm=tag.match(/name="([^"]*)"/), idm=tag.match(/r:id="([^"]*)"/);
+      if(nm&&idm&&nm[1].replace(/&amp;/g,'&')===sheetName){ rid=idm[1]; break; }
+    }
+    if(!rid) return null;
+    var tm=rels.match(new RegExp('<Relationship[^>]*Id="'+rid+'"[^>]*Target="([^"]*)"'))||
+           rels.match(new RegExp('Target="([^"]*)"[^>]*Id="'+rid+'"'));
+    if(!tm) return null;
+    var pathName=tm[1].replace(/^\//,'');
+    if(pathName.slice(0,3)!=='xl/') pathName='xl/'+pathName;
+    var xml=await zipRead(u8,pathName);
+    if(!xml) return null;
+    var out={}, cre=/<c\b([^>]*)/g, cm;
+    while((cm=cre.exec(xml))){
+      var attrs=cm[1];
+      var rm=attrs.match(/\br="([A-Z]+)(\d+)"/), sm=attrs.match(/\bs="(\d+)"/);
+      if(!rm||!sm) continue;
+      var xf=Styles.CellXf[+sm[1]];
+      if(!xf) continue;
+      var font=(Styles.Fonts||[])[+(xf.fontId||0)]||{};
+      var fill=(Styles.Fills||[])[+(xf.fillId||0)]||{};
+      var fillRgb=(fill.patternType==='solid'&&fill.fgColor&&fill.fgColor.rgb)?String(fill.fgColor.rgb).slice(-6).toUpperCase():null;
+      var fontRgb=(font.color&&font.color.rgb)?String(font.color.rgb).slice(-6).toUpperCase():null;
+      var fl={strike:!!font.strike, greyFont:!!(fontRgb&&isGreyHex(fontRgb)), fcolor:fontRgb, fill:fillRgb};
+      if(fl.strike||fl.greyFont||fl.fill) out[(+rm[2]-1)+','+colLetterToIdx(rm[1])]=fl;
+    }
+    return out;
+  }catch(e){ return null; }
+}
+/* a name cell is "dead" (cancelled earlier, kept for the record) if struck,
+   grey-fonted, or sitting on a grey/red fill */
+function isDeadStyle(fl){
+  return !!fl && (fl.strike||fl.greyFont||(fl.fill&&(isGreyHex(fl.fill)||isRedHex(fl.fill))));
+}
+
 /* A row is a header only if 2+ cells are exact header labels — a booking row
    whose notes mention "check in" must never be mistaken for a header.       */
 var HEADER_CELL_RX=/^(HOTEL ?NAME|HOTEL ?LOCATION|CHECK[ \-]?IN( TIME| DATE)?|CHECK[ \-]?OUT( TIME| DATE)?|(IN|OUT)BOUND( FLIGHT| FLT)?|NAME ?[1-3]|PAIRING( ?SHORT ?CODE| CODE)?|CONF(IRMATION)?S?( NUMBERS?)? ?#? ?[1-3]?|NOTES?|COMMENTS?)$/;
@@ -771,7 +865,22 @@ function parseRows(grid,kind){
       if(rec.hotel===''){ rec.hotel=lastHotelCanon; if(!rec.disp[0]) rec.disp[0]=lastHotelDisp; }
       else { lastHotelCanon=rec.hotel; lastHotelDisp=rec.disp[0]; }
     }
-    var hasName=rec.nameKeys.some(function(k){return k!=='';});
+    /* cell formatting: greyed/struck names are dead (cancelled earlier) —
+       they never participate in matching or diffs, but stay on the sheet  */
+    var sty=grid._styles||null;
+    rec.deadNames=[false,false,false];
+    var deadCount=0, liveCount=0;
+    if(sty){
+      [C_N1,C_N2,C_N3].forEach(function(cc,i){
+        if(!rec.nameKeys[i]) return;
+        if(isDeadStyle(sty[r+','+cc])){ rec.deadNames[i]=true; rec.nameKeys[i]=''; deadCount++; }
+        else liveCount++;
+      });
+      var struckCells=0;
+      for(var sc=0;sc<16;sc++) if(isDeadStyle(sty[r+','+sc])) struckCells++;
+      rec.cancelledPrior=(deadCount>0&&liveCount===0)||struckCells>=4;
+    }else rec.cancelledPrior=false;
+    var hasName=rec.nameKeys.some(function(k){return k!=='';})||rec.deadNames.some(function(x){return x;});
     if(!hasName && rec.ciDate==='' && rec.inFlt==='') continue;    /* blank / divider row */
     rows.push(rec);
   }
@@ -813,13 +922,82 @@ var TIERS=[
                                                       test:function(m,h){return dEq(m,h)&&dateEq(m.coDate,h.coDate);}, unique:true}
 ];
 
-function matchRows(masterRows,hotelRows){
+/* days between two canonical dates, comparing them against EACH OTHER:
+   the less specific form adopts the nearest month/year interpretation of the
+   more specific one (never anchored to today — a booking two weeks out must
+   not flip months).                                                        */
+function dateDistDays(a,b){
+  function kindOf(x){
+    if(!x) return null;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(x)&&x.slice(0,4)!=='0000') return 'full';
+    if(x.slice(0,4)==='0000') return 'md';
+    if(x.slice(0,2)==='D:') return 'day';
+    return null;
+  }
+  function dist(x,y){ return Math.abs(Math.round((Date.parse(x)-Date.parse(y))/86400000)); }
+  var ka=kindOf(a), kb=kindOf(b);
+  if(!ka||!kb) return null;
+  var rank={full:3,md:2,day:1};
+  if(rank[kb]>rank[ka]){ var t=a;a=b;b=t; t=ka;ka=kb;kb=t; }
+  if(ka==='full'&&kb==='full') return dist(a,b);
+  var best=null;
+  function tryIso(iso,ref){
+    if(isNaN(Date.parse(iso))) return;
+    var d=dist(ref,iso);
+    if(best==null||d<best) best=d;
+  }
+  if(ka==='full'&&kb==='md'){
+    var y=+a.slice(0,4);
+    [y-1,y,y+1].forEach(function(yy){ tryIso(String(yy)+'-'+b.slice(5),a); });
+    return best;
+  }
+  if(ka==='full'&&kb==='day'){
+    var y2=+a.slice(0,4), mo=+a.slice(5,7), dn=dayOf(b);
+    [-1,0,1].forEach(function(k){
+      var m2=mo+k, yy2=y2;
+      if(m2===0){m2=12;yy2--;}
+      if(m2===13){m2=1;yy2++;}
+      tryIso(isoParts(yy2,m2,dn),a);
+    });
+    return best;
+  }
+  if(ka==='md'&&kb==='md'){
+    var ref='2001-'+a.slice(5);
+    [2000,2001,2002].forEach(function(yy){ tryIso(String(yy)+'-'+b.slice(5),ref); });
+    return best;
+  }
+  if(ka==='md'&&kb==='day'){
+    var ref2='2001-'+a.slice(5), mo2=+a.slice(5,7), dn2=dayOf(b);
+    [-1,0,1].forEach(function(k){
+      var m3=mo2+k, y3=2001;
+      if(m3===0){m3=12;y3--;}
+      if(m3===13){m3=1;y3++;}
+      tryIso(isoParts(y3,m3,dn2),ref2);
+    });
+    return best;
+  }
+  var dd=Math.abs(dayOf(a)-dayOf(b));
+  return Math.min(dd,31-dd);
+}
+
+function matchRows(masterRows,hotelRows,todayISO){
+  if(!todayISO){
+    var nn=new Date();
+    todayISO=isoParts(nn.getFullYear(),nn.getMonth()+1,nn.getDate());
+  }
+  /* two rows are only ever the SAME booking if the check-in moves at most
+     2 days — otherwise they are separate stays (matching them would silently
+     stretch a hotel booking across extra, paid nights)                      */
+  function near(m,h){
+    var d=dateDistDays(m.ciDate,h.ciDate);
+    return d==null || d<=2;
+  }
   var freeM=masterRows.slice(), freeH=hotelRows.slice(), matches=[];
   TIERS.forEach(function(tier){
     if(tier.unique){
       /* accept only pairs unambiguous in both directions */
       var cand=[];
-      freeM.forEach(function(m){ freeH.forEach(function(h){ if(tier.test(m,h)) cand.push([m,h]); }); });
+      freeM.forEach(function(m){ freeH.forEach(function(h){ if(near(m,h)&&tier.test(m,h)) cand.push([m,h]); }); });
       var mCnt={}, hCnt={};
       cand.forEach(function(p){ mCnt[p[0].srcRow]=(mCnt[p[0].srcRow]||0)+1;
                                 hCnt[p[1].srcRow]=(hCnt[p[1].srcRow]||0)+1; });
@@ -834,7 +1012,7 @@ function matchRows(masterRows,hotelRows){
       for(var i=freeM.length-1;i>=0;i--){
         var m=freeM[i];
         for(var j=0;j<freeH.length;j++){
-          if(tier.test(m,freeH[j])){
+          if(near(m,freeH[j])&&tier.test(m,freeH[j])){
             matches.push({m:m,h:freeH[j],why:tier.why});
             freeM.splice(i,1); freeH.splice(j,1); break;
           }
@@ -930,13 +1108,14 @@ function diffPair(m,h,opts){
         if(incoming.length)
           items.push({col:8+s,label:'Name '+(s+1),oldText:h.names[s],newText:incoming.shift(),cat:'name',sub:'change'});
         else
-          items.push({col:8+s,label:'Name '+(s+1),oldText:h.names[s],newText:'',cat:'name',sub:'remove',
-                      note:'Person removed — their confirmation ('+(h.disp[12+s]||'?')+') may need cancelling with the hotel.'});
+          items.push({col:8+s,label:'Name '+(s+1),oldText:h.names[s],newText:h.names[s],cat:'removal',sub:'remove',
+                      note:'Crew member removed from this booking — name stays on the sheet in red, struck through. '+
+                           'Their confirmation ('+(h.disp[12+s]||'?')+') may need cancelling with the hotel.'});
         used[s]=1;
       }
     }
     for(var s2=0;s2<3 && incoming.length;s2++){
-      if(!h.nameKeys[s2] && !used[s2]){
+      if(!h.nameKeys[s2] && !used[s2] && !(h.deadNames&&h.deadNames[s2])){
         items.push({col:8+s2,label:'Name '+(s2+1),oldText:'',newText:incoming.shift(),cat:'name',sub:'add',confCol:12+s2});
       }
     }
@@ -1064,16 +1243,27 @@ function buildOutput(hotelGrid,updates,cancels,news,hotelRows){
   var lastData=-1;
   (hotelRows||[]).forEach(function(r){ if(r.srcRow>lastData) lastData=r.srcRow; });
   var srcGrid=(lastData>=0)?hotelGrid.slice(0,lastData+1):hotelGrid;
-  var base=srcGrid.map(function(g){
+  var sty=hotelGrid._styles||null;
+  var base=srcGrid.map(function(g,ri){
     var row=[];
-    for(var c=0;c<16;c++) row.push({text:dispOf((g||[])[c]),fill:null,strike:false});
+    for(var c=0;c<16;c++){
+      var cell={text:dispOf((g||[])[c]),fill:null,strike:false};
+      var fl=sty&&sty[ri+','+c];
+      if(fl){                       /* keep the sheet's own record-keeping formatting */
+        if(fl.strike) cell.strike=true;
+        if(fl.fill) cell.fill='#'+fl.fill.toLowerCase();
+        if(fl.fcolor&&fl.fcolor!=='000000') cell.fcolor='#'+fl.fcolor.toLowerCase();
+      }
+      row.push(cell);
+    }
     return row;
   });
   updates.forEach(function(u){
     u.items.forEach(function(it){
       var cell=base[u.srcRow][it.col];
       cell.text=it.newText;
-      cell.fill=(it.cat==='name')?C_NAME:C_SCHED;
+      if(it.cat==='removal'){ cell.fill=C_CANCEL; cell.strike=true; }
+      else cell.fill=(it.cat==='name')?C_NAME:C_SCHED;
       if(it.sub==='add' && it.confCol!=null){
         base[u.srcRow][it.confCol].text='NEW';
         base[u.srcRow][it.confCol].fill=C_NAME;
@@ -1121,6 +1311,7 @@ function outputToClipboardHtml(out){
          background-color + bgcolor, and <s> for dependable strikethrough */
       var st=['text-align:left','vertical-align:middle','white-space:normal','word-wrap:break-word'];
       if(cell.fill) st.push('background-color:'+cell.fill);
+      if(cell.fcolor) st.push('color:'+cell.fcolor);
       if(cell.strike) st.push('text-decoration:line-through');
       if(c>=12&&c<=14) st.push("mso-number-format:'\\@'");
       var txt=escHtml(cell.text);
@@ -1238,6 +1429,8 @@ if(typeof module!=='undefined'&&module.exports){
     windowFromInputs:windowFromInputs,dateCmp:dateCmp,dayOf:dayOf,
     insertionSrcRow:insertionSrcRow,pairingBothText:pairingBothText,
     canonPairing:canonPairing,isPastISO:isPastISO,isPastDT:isPastDT,isoParts:isoParts,resolveToDate:resolveToDate,
+    readStyleGrid:readStyleGrid,isDeadStyle:isDeadStyle,dateDistDays:dateDistDays,
+    zipRead:zipRead,isGreyHex:isGreyHex,isRedHex:isRedHex,
     headerField:headerField,buildColMap:buildColMap,anchorDayToUTC:anchorDayToUTC,
     foldSplitPairings:foldSplitPairings,FOOTER_TEXT:FOOTER_TEXT,fmtDayMon:fmtDayMon};
 }
@@ -1383,7 +1576,7 @@ if(typeof module!=='undefined'&&module.exports){
           return;
         }
         var defaultSheet=(side==='hotel') ? wb.SheetNames[wb.SheetNames.length-1] : wb.SheetNames[0];
-        S[side]={ file:file.name, wb:wb, sheetName:defaultSheet, grid:null, rows:null };
+        S[side]={ file:file.name, wb:wb, u8:new Uint8Array(buf), sheetName:defaultSheet, grid:null, rows:null };
         useSheet(side,defaultSheet);
       }).catch(function(err){
         fatal('Reading '+file.name+' failed:\n'+(err&&err.stack||err));
@@ -1392,10 +1585,18 @@ if(typeof module!=='undefined'&&module.exports){
   }
 
   function useSheet(side,sheetName){
+    var st=S[side];
+    st.sheetName=sheetName;
+    st.grid=sheetToGrid(st.wb.Sheets[sheetName]);
+    readStyleGrid(st.u8,sheetName,st.wb.Styles).then(function(styles){
+      if(S[side]!==st||st.sheetName!==sheetName) return;   /* superseded by a newer load */
+      st.grid._styles=styles;
+      finishSheet(side);
+    },function(){ finishSheet(side); });
+  }
+  function finishSheet(side){
     try{
       var st=S[side];
-      st.sheetName=sheetName;
-      st.grid=sheetToGrid(st.wb.Sheets[sheetName]);
       st.rows=parseRows(st.grid,side);
       renderFileZone(side);
       warnIfSwapped();
@@ -1559,11 +1760,13 @@ if(typeof module!=='undefined'&&module.exports){
     var nowHM=pad2(now.getHours())+':'+pad2(now.getMinutes());
     var masterRows=S.master.rows.filter(function(r){ return canons.indexOf(r.hotel)>=0; });
     var win=currentWindow();
-    var inScope=[], outside=[];
+    var inScope=[], outside=[], gone=[];
     S.hotel.rows.forEach(function(h){
-      (inWindow(win,h.ciDate)?inScope:outside).push(h);
+      if(h.cancelledPrior) gone.push(h);                 /* grey/struck: already cancelled */
+      else if(inWindow(win,h.ciDate)) inScope.push(h);
+      else outside.push(h);
     });
-    var res=foldSplitPairings(matchRows(masterRows,inScope));
+    var res=foldSplitPairings(matchRows(masterRows,inScope,todayISO));
     var updates=[],unchanged=[];
     res.matches.forEach(function(mt){
       var lock=isPastDT(mt.h.ciDate,mt.h.ciTime,todayISO,nowHM);
@@ -1577,7 +1780,7 @@ if(typeof module!=='undefined'&&module.exports){
     });
     var news=res.newMaster.filter(function(m){ return !isPastDT(m.ciDate,m.ciTime,todayISO,nowHM); });
     S.result={updates:updates,unchanged:unchanged,win:win,
-              outside:outside,past:past,
+              outside:outside,past:past,gone:gone,
               news:news.map(function(m){return {m:m,ck:false};}),
               cancels:cancels.map(function(h){return {h:h,ck:false};})};
     buildEntries();
@@ -1600,6 +1803,7 @@ if(typeof module!=='undefined'&&module.exports){
     R.unchanged.forEach(function(mt){ entries.push({kind:'unchanged',h:mt.h,m:mt.m,order:mt.h.srcRow}); });
     R.outside.forEach(function(h){ entries.push({kind:'outside',h:h,order:h.srcRow}); });
     R.past.forEach(function(h){ entries.push({kind:'past',h:h,order:h.srcRow}); });
+    R.gone.forEach(function(h){ entries.push({kind:'gone',h:h,order:h.srcRow}); });
     R.cancels.forEach(function(c){ entries.push({kind:'cancel',c:c,h:c.h,order:c.h.srcRow}); });
     R.news.forEach(function(n){
       var at=insertionSrcRow(n.m,S.hotel.rows);
@@ -1622,6 +1826,12 @@ if(typeof module!=='undefined'&&module.exports){
   function crewLine(rec){
     var ns=rec.names.filter(function(x){return normWS(x)!=='';});
     return ns.length?ns.join(' · '):'(no names)';
+  }
+  function hotelCellText(rec,col){
+    var t=escHtml(rec.disp[col]||'');
+    if(col>=8&&col<=10&&rec.deadNames&&rec.deadNames[col-8]&&t)
+      return '<span class="dead" title="Cancelled earlier — kept for the record">'+t+'</span>';
+    return t;
   }
   function effText(it){
     return (it.canBoth&&it.mode==='both') ? pairingBothText(it.oldText,it.newText) : it.newText;
@@ -1650,12 +1860,15 @@ if(typeof module!=='undefined'&&module.exports){
     return {approved:a,total:t};
   }
   function renderChips(){
-    var R=S.result, su=0,sn=0,sua=0,sna=0;
+    var R=S.result, su=0,sn=0,sua=0,sna=0,rm=0,rma=0;
     R.updates.forEach(function(u){u.items.forEach(function(it){
-      if(it.cat==='name'){sn++; if(it.ck)sna++;} else {su++; if(it.ck)sua++;}
+      if(it.cat==='name'){sn++; if(it.ck)sna++;}
+      else if(it.cat==='removal'){rm++; if(it.ck)rma++;}
+      else {su++; if(it.ck)sua++;}
     });});
     var na=R.news.filter(function(n){return n.ck;}).length;
-    var ca=R.cancels.filter(function(c){return c.ck;}).length;
+    var ca=R.cancels.filter(function(c){return c.ck;}).length+rma;
+    var ct=R.cancels.length+rm;
     function chip(color,label,appr,total){
       return '<span class="chip"><span class="dot" style="background:'+color+'"></span>'+
              label+' <b>'+(total? appr+'/'+total : '0')+'</b></span>';
@@ -1664,19 +1877,24 @@ if(typeof module!=='undefined'&&module.exports){
       chip(C_SCHED, su+' schedule', sua, su)+
       chip(C_NAME, sn+' name', sna, sn)+
       chip(C_NEW, R.news.length+' new', na, R.news.length)+
-      chip(C_CANCEL, R.cancels.length+' possible cancellation'+(R.cancels.length!==1?'s':''), ca, R.cancels.length)+
+      chip(C_CANCEL, ct+' possible cancellation'+(ct!==1?'s':''), ca, ct)+
       '<span class="chip"><span class="dot" style="background:#3f3a3a"></span>'+R.unchanged.length+' unchanged</span>'+
       (R.outside.length?'<span class="chip" title="Check-in outside the master’s window ('+
         escHtml(fmtWindow(R.win))+') — left untouched"><span class="dot" style="background:#5e6368"></span>'+
         R.outside.length+' outside window</span>':'')+
       (R.past.length?'<span class="chip" title="Checked in before today — historical, left untouched">'+
-        '<span class="dot" style="background:#5e6368"></span>'+R.past.length+' historical</span>':'');
+        '<span class="dot" style="background:#5e6368"></span>'+R.past.length+' historical</span>':'')+
+      (R.gone.length?'<span class="chip" title="Grey/struck-through in the hotel sheet — cancelled on an earlier page; record kept, left untouched">'+
+        '<span class="dot" style="background:#7a4a4a"></span>'+R.gone.length+' cancelled earlier</span>':'');
     var c=approvedCounts();
     $('approve-count').innerHTML='<b>'+c.approved+'</b> of '+c.total+' proposed changes approved';
   }
 
   /* ------- render: side-by-side dashboard cards ------- */
-  function catClass(it){ return it.cat==='name'?'c-name':'c-sched'; }
+  function catClass(it){
+    if(it.cat==='removal') return 'c-cancel';
+    return it.cat==='name'?'c-name':'c-sched';
+  }
 
   function pairRowsHtml(e,ei){
     var marks={}, srcMarks={};
@@ -1706,7 +1924,7 @@ if(typeof module!=='undefined'&&module.exports){
         h+='<td class="d '+catClass(it2)+appr+'" data-ei="'+ei+'" data-ii="'+ii2+'" tabindex="0" role="button" '+
            'aria-pressed="'+(!!it2.ck)+'" aria-label="'+escHtml(it2.label+': '+(it2.oldText||'blank')+' to '+(it2.newText||'removed'))+'">'+
            escHtml(shown)+(it2.ck?'<span class="apprmark">✓</span>':'')+'</td>';
-      } else h+='<td>'+escHtml(e.h.disp[c2]||'')+'</td>';
+      } else h+='<td>'+hotelCellText(e.h,c2)+'</td>';
     }
     return h+'</tr>';
   }
@@ -1760,18 +1978,21 @@ if(typeof module!=='undefined'&&module.exports){
       }
       body='<table class="bkt"'+tblW+'>'+colgroupHtml()+rc+'</tr></table>';
     }
-    if(e.kind==='outside'||e.kind==='past'){
-      var isPastKind=e.kind==='past';
-      cls+=' k-outside quiet';
-      var whyTxt=isPastKind
-        ? 'checked in before today — historical, untouched'
-        : 'outside '+escHtml(fmtWindow(S.result.win))+' — untouched';
-      head='<span class="rowtag outtag">'+(isPastKind?'Historical':'Out of range')+'</span>'+
+    if(e.kind==='outside'||e.kind==='past'||e.kind==='gone'){
+      var isPastKind=e.kind==='past', isGone=e.kind==='gone';
+      cls+=' k-outside quiet'+(isGone?' k-gone':'');
+      var whyTxt=isGone
+        ? 'grey / struck through on the sheet — cancelled on an earlier page, record kept'
+        : (isPastKind
+          ? 'checked in before today — historical, untouched'
+          : 'outside '+escHtml(fmtWindow(S.result.win))+' — untouched');
+      head='<span class="rowtag '+(isGone?'cantag':'outtag')+'">'+
+        (isGone?'Cancelled earlier':(isPastKind?'Historical':'Out of range'))+'</span>'+
         '<span class="bk-who">'+escHtml(crewLine(e.h))+'</span>'+
         metaChips(e.h,e.h.srcRow+1)+
         '<span class="bk-why">'+whyTxt+'</span>';
-      var ro='<tr><td class="lbl">Hotel</td>';
-      for(var c5=0;c5<16;c5++) ro+='<td>'+escHtml(e.h.disp[c5]||'')+'</td>';
+      var ro='<tr'+(isGone?' class="gonerow"':'')+'><td class="lbl">Hotel</td>';
+      for(var c5=0;c5<16;c5++) ro+='<td>'+hotelCellText(e.h,c5)+'</td>';
       body='<table class="bkt"'+tblW+'>'+colgroupHtml()+ro+'</tr></table>';
     }
     return '<div class="'+cls+'" data-grp="'+ei+'"><div class="bk-head">'+head+'</div>'+body+'</div>';
@@ -1792,7 +2013,7 @@ if(typeof module!=='undefined'&&module.exports){
     var showU=$('show-unch').checked;
     document.querySelectorAll('#gridwrap .bk[data-grp]').forEach(function(bk){
       var e=S.entries[+bk.dataset.grp];
-      var untouched=(e.kind==='unchanged'||e.kind==='outside'||e.kind==='past');
+      var untouched=(e.kind==='unchanged'||e.kind==='outside'||e.kind==='past'||e.kind==='gone');
       var vis=(showU||!untouched) && (!q||e.search.indexOf(q)>=0);
       bk.style.display=vis?'':'none';
     });
@@ -1817,6 +2038,7 @@ if(typeof module!=='undefined'&&module.exports){
           '<span class="bwhy" title="How these two rows were matched">'+escHtml(u.why)+'</span></div>'+
           '<table class="diff"><tr><th style="width:26px"></th><th>Field</th><th>Hotel sheet (current)</th><th>Master (new)</th></tr>';
         u.items.forEach(function(it,ii){
+          if(it.cat==='removal') return;   /* shown in the cancellations section */
           var tag=it.cat==='name'
             ?'<span class="tag" style="background:'+C_NAME+'">NAME</span>'
             :'<span class="tag" style="background:'+C_SCHED+'">SCHED</span>';
@@ -1849,8 +2071,15 @@ if(typeof module!=='undefined'&&module.exports){
       });
       html+='</div>';
     }
-    if(R.cancels.length){
-      html+='<div class="group"><h3><span class="gdot" style="background:'+C_CANCEL+'"></span>Possible cancellations ('+R.cancels.length+') '+
+    var removals=[];
+    R.updates.forEach(function(u,ui){
+      u.items.forEach(function(it,ii){
+        if(it.cat==='removal') removals.push({u:u,ui:ui,it:it,ii:ii});
+      });
+    });
+    if(R.cancels.length||removals.length){
+      var ctot=R.cancels.length+removals.length;
+      html+='<div class="group"><h3><span class="gdot" style="background:'+C_CANCEL+'"></span>Possible cancellations ('+ctot+') '+
         '<button class="small" data-act="all-can">Approve all</button>'+
         '<button class="small" data-act="none-can">Clear</button></h3>'+
         '<div class="warn">These are on the hotel sheet but <b>not on the master</b>. '+
@@ -1864,6 +2093,14 @@ if(typeof module!=='undefined'&&module.exports){
           (cn.ck?' checked':'')+'> Cancel — <span class="who">'+escHtml(crewLine(cn.h))+'</span></label>'+
           metaChips(cn.h,cn.h.srcRow+1)+
           (confs?'<span class="bwhy">conf: '+escHtml(confs)+'</span>':'')+'</div></div>';
+      });
+      removals.forEach(function(rv){
+        html+='<div class="booking" data-search="'+escHtml(searchText(rv.u.h))+'">'+
+          '<div class="bhead"><label class="cklabel"><input type="checkbox" data-upd="'+rv.ui+':'+rv.ii+'"'+
+          (rv.it.ck?' checked':'')+'> Remove crew member — <span class="who">'+escHtml(rv.it.oldText)+'</span>'+
+          '<span class="tag" style="background:'+C_CANCEL+';color:#fff">REMOVED</span></label>'+
+          metaChips(rv.u.h,rv.u.h.srcRow+1)+'</div>'+
+          '<div class="cancelnote">'+escHtml(rv.it.note||'')+'</div></div>';
       });
       html+='</div>';
     }
@@ -1886,6 +2123,14 @@ if(typeof module!=='undefined'&&module.exports){
       html+='<details class="unchanged"><summary>Historical ('+R.past.length+
         ') — checked in before today, left untouched</summary><ul>';
       R.past.forEach(function(h){
+        html+='<li>'+escHtml(crewLine(h))+' — row '+(h.srcRow+1)+', in '+escHtml(h.disp[3]||'?')+'</li>';
+      });
+      html+='</ul></details>';
+    }
+    if(R.gone.length){
+      html+='<details class="unchanged"><summary>Cancelled earlier ('+R.gone.length+
+        ') — grey/struck on the sheet; record kept, left untouched</summary><ul>';
+      R.gone.forEach(function(h){
         html+='<li>'+escHtml(crewLine(h))+' — row '+(h.srcRow+1)+', in '+escHtml(h.disp[3]||'?')+'</li>';
       });
       html+='</ul></details>';
@@ -1997,7 +2242,14 @@ if(typeof module!=='undefined'&&module.exports){
     var ei=+td.dataset.ei, ii=td.dataset.ii!=null?+td.dataset.ii:null;
     var e=S.entries[ei]; if(!e) return;
     var html='';
-    if(e.kind==='update'&&ii!=null){
+    if(e.kind==='update'&&ii!=null&&e.u.items[ii].cat==='removal'){
+      var itr=e.u.items[ii];
+      html='<div class="t-label"><span class="dot" style="background:'+C_CANCEL+'"></span>Crew member removed</div>'+
+        '<div class="t-change"><span class="t-new">'+escHtml(itr.oldText)+'</span></div>'+
+        '<div class="t-warnnote">'+escHtml(itr.note||'')+'</div>'+
+        '<button class="'+(itr.ck?'undo':'primary')+'" data-tip-ei="'+ei+'" data-tip-ii="'+ii+'">'+
+        (itr.ck?'Approved ✓ — click to undo':'Approve removal (red + struck)')+'</button>';
+    }else if(e.kind==='update'&&ii!=null){
       var it=e.u.items[ii];
       var color=it.cat==='name'?C_NAME:C_SCHED;
       html='<div class="t-label"><span class="dot" style="background:'+color+'"></span>'+escHtml(it.label)+
@@ -2111,6 +2363,7 @@ if(typeof module!=='undefined'&&module.exports){
       row.forEach(function(cell){
         var st=[];
         if(cell.fill) st.push('background:'+cell.fill);
+        if(cell.fcolor) st.push('color:'+cell.fcolor);
         if(cell.strike) st.push('text-decoration:line-through');
         h.push('<td'+(st.length?' style="'+st.join(';')+'"':'')+'>'+escHtml(cell.text)+'</td>');
       });
