@@ -207,13 +207,13 @@ function ok(msg) { console.log('  ✓ ' + msg); }
   has(check.wendy.name, 'WILSON WENDY', 'background:#b5e6a2', 'Wendy new row green');
   has(check.wendy.conf1, 'NEW', 'background:#b5e6a2', 'Wendy conf1 = NEW');
   if (check.wendy.notes.t !== 'Late arrival') fail('notes not mapped M->P');
-  if (check.totalRows !== 11) fail('expected 11 output rows (header + 8 hotel + 1 new + footer), got ' + check.totalRows);
+  if (check.totalRows !== 10) fail('expected 10 output rows (header + 8 hotel + 1 new, no footer), got ' + check.totalRows);
   const lastRow = await page.evaluate(() => {
     const rows = document.querySelectorAll('#previewbox table tr');
     return rows[rows.length - 1].textContent;
   });
-  if (!lastRow.includes('Property of CargoJet Crew Scheduling Group')) fail('property footer missing, got: ' + lastRow);
-  ok('property footer appended as the final row');
+  if (lastRow.includes('Property of CargoJet Crew Scheduling Group')) fail('property footer should be gone, got: ' + lastRow);
+  ok('no footer row on the page');
   const outCheck = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('#previewbox table tr')].slice(1);
     const hit = rows.find(r => [...r.children].some(td => td.textContent.includes('PETERS PAUL')));
@@ -254,7 +254,11 @@ function ok(msg) { console.log('  ✓ ' + msg); }
     if (!clip.includes(geom)) fail('clipboard missing paste geometry: ' + geom);
   }
   ok('clipboard carries fills, strikethrough, column widths, wrap and alignment');
-  if (!clip.includes('Property of CargoJet Crew Scheduling Group')) fail('clipboard missing property footer');
+  if (clip.includes('Property of CargoJet Crew Scheduling Group')) fail('clipboard must not carry the footer any more');
+  // the buildPreview item mapping must keep the noFill flag (silent pairing writes)
+  const src = fs.readFileSync(path.join(here, 'built.html'), 'utf8');
+  if (!src.includes('noFill:it.noFill')) fail('buildPreview mapping lost the noFill flag');
+  ok('silent-pairing noFill flag survives the preview mapping');
 
   // ---- workbook download: new sheet added INTO the uploaded file ----
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btn-download')]);
@@ -277,9 +281,8 @@ function ok(msg) { console.log('  ✓ ' + msg); }
     }
     const nsheet = after.Sheets[after.SheetNames[after.SheetNames.length - 1]];
     if (!nsheet['A1'] || !String(nsheet['A1'].v).trim()) fail('new sheet has no content at A1');
-    let foundFooter = false;
-    for (const k in nsheet) if (nsheet[k] && String(nsheet[k].v || '').includes('Property of CargoJet Crew Scheduling Group')) foundFooter = true;
-    if (!foundFooter) fail('new sheet missing property footer');
+    for (const k in nsheet) if (nsheet[k] && String(nsheet[k].v || '').includes('Property of CargoJet Crew Scheduling Group'))
+      fail('new sheet must not carry the footer any more');
   }
   ok('download adds the new sheet into the uploaded workbook, all original tabs byte-identical');
 

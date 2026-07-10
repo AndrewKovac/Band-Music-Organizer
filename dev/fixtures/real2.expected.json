@@ -4,15 +4,41 @@
   "now": "12:00",
   "expect": {
     "updates": [
-      { "who": "JOE, VINCENT", "fields": ["Check-out time"] },
-      { "who": "BOB, NANCY", "fields": ["Check-out time", "Pairing code"] },
-      { "who": "JOE, COLIN", "fields": ["Pairing code"] },
-      { "who": "JOE, OLAPOSI", "fields": ["Check-out date"] }
+      {
+        "who": "JOE, VINCENT",
+        "fields": [
+          "Check-out time"
+        ]
+      },
+      {
+        "who": "BOB, NANCY",
+        "fields": [
+          "Check-out time",
+          "Pairing code"
+        ]
+      },
+      {
+        "who": "JOE, COLIN",
+        "fields": [
+          "Pairing code"
+        ]
+      },
+      {
+        "who": "JOE, OLAPOSI",
+        "fields": [
+          "Check-out date"
+        ]
+      }
     ],
     "new": [],
-    "cancel": ["SMITH, CHUCK"],
+    "cancel": [
+      "SMITH, CHUCK"
+    ],
     "outside": [],
-    "past": ["DAVE, RANDY"],
-    "unchangedCount": 3
+    "past": [
+      "DAVE, RANDY"
+    ],
+    "unchangedCount": 3,
+    "grey": []
   }
 }

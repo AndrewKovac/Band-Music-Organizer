@@ -1,0 +1,15 @@
+{
+  "hotelSheet": "JUL 09 AK N",
+  "today": "2026-07-10",
+  "now": "12:00",
+  "expect": {
+    "updates": [],
+    "new": [],
+    "cancel": [],
+    "outside": ["OLD, OLIVER", "LATE, MONTH", "ROLLOVER, RAY"],
+    "past": [],
+    "gone": [],
+    "unchangedCount": 2,
+    "grey": ["OLD, OLIVER"]
+  }
+}

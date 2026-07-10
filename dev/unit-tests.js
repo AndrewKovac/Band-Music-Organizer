@@ -185,8 +185,7 @@ function rec(kind, o) {
   const out = C.buildOutput(grid,
     [{ srcRow: 1, items: [{ col: 2, newText: '16:30', cat: 'schedule' }] }],
     [2], [newRec], [{ srcRow: 1, ciDate: '' }, { srcRow: 2, ciDate: '' }]);
-  eq(out.length, 5, 'rows: header + 2 data + 1 new + footer');
-  eq(out[4][0].text, C.FOOTER_TEXT, 'footer row appended');
+  eq(out.length, 4, 'rows: header + 2 data + 1 new (no footer)');
   eq(out[1][2].text, '16:30', 'time updated');
   eq(out[1][2].fill, '#ffff00', 'yellow fill');
   eq(out[2][0].fill, '#ff0000', 'cancel red');
@@ -295,10 +294,9 @@ eq(C.dateCmp('D:04', 'D:07') < 0, true, 'day-only ordering');
     [{ v: 'AG' }, { v: 'ANC' }, { v: '15:00' }, { v: '30JUL26' }, null, null, null, null, { v: 'BBB' }]
   ];
   const out = C.buildOutput(grid, [], [], [newRec], hRows);
-  eq(out.length, 5, 'header + 2 rows + inserted new + footer');
+  eq(out.length, 4, 'header + 2 rows + inserted new (no footer)');
   eq(out[2][8].text, 'WILSON WENDY', 'new row inserted at index 2 (before 30JUL)');
-  eq(out[3][8].text, 'BBB', '30JUL row pushed down');
-  eq(out[4][0].text, C.FOOTER_TEXT, 'footer stays at the very bottom');
+  eq(out[3][8].text, 'BBB', '30JUL row pushed down and stays last');
 }
 
 /* pairing text helpers */
@@ -310,7 +308,7 @@ eq(C.pairingBothText('ABCD', 'DCBA'), 'ABCD, DCBA', 'combined-code text');
 }
 
 /* clipboard carries the paste geometry */
-/* trailing notes/footers in the source are dropped, replaced by the property line */
+/* trailing notes/footers in the source are dropped; nothing is appended */
 {
   const grid = [
     [{ v: 'Hotel Name' }, { v: 'Hotel Location' }],
@@ -319,8 +317,7 @@ eq(C.pairingBothText('ABCD', 'DCBA'), 'ABCD, DCBA', 'combined-code text');
     [{ v: 'old footer 2' }]
   ];
   const out = C.buildOutput(grid, [], [], [], [{ srcRow: 1, ciDate: C.parseDateText('25JUL26') }]);
-  eq(out.length, 3, 'old footers dropped: header + data + new footer');
-  eq(out[2][0].text, C.FOOTER_TEXT, 'property footer replaces old notes');
+  eq(out.length, 2, 'old footers dropped: header + data, nothing appended');
 }
 
 {
@@ -441,18 +438,55 @@ assert(C.hotelSimilarity('Hilton Anchorage', 'Marriott Fairbanks') === 0, 'diffe
     [{ v: 'Hotel Name' }],
     [{ v: 'H' }, null, null, { v: '6-Jul' }, null, null, { v: '8-Jul' }, null, { v: 'Out, Olivia' }],
     [{ v: 'H' }, null, null, { v: '8-Jul' }, null, null, { v: '9-Jul' }, null, { v: 'Today, Tom' }],
-    [{ v: 'H' }, null, null, { v: '10-Jul' }, null, null, { v: '11-Jul' }, null, { v: 'Future, Fred' }]
+    [{ v: 'H' }, null, null, { v: '10-Jul' }, null, null, { v: '11-Jul' }, null, { v: 'Future, Fred' }],
+    [{ v: 'H' }, null, null, { v: '27' }, null, null, { v: '28' }, null, { v: 'Late, Month' }],
+    [{ v: 'H' }, null, null, { v: '30' }, null, null, { v: '1' }, null, { v: 'Rollover, Ray' }]
   ];
   const hRows = [
     { srcRow: 1, ciDate: C.parseDateText('6-Jul'), coDate: C.parseDateText('8-Jul') },
     { srcRow: 2, ciDate: C.parseDateText('8-Jul'), coDate: C.parseDateText('9-Jul') },
-    { srcRow: 3, ciDate: C.parseDateText('10-Jul'), coDate: C.parseDateText('11-Jul') }
+    { srcRow: 3, ciDate: C.parseDateText('10-Jul'), coDate: C.parseDateText('11-Jul') },
+    { srcRow: 4, ciDate: 'D:27', coDate: 'D:28' },
+    { srcRow: 5, ciDate: 'D:30', coDate: 'D:1' }
   ];
   const out = C.buildOutput(grid, [], [], [], hRows, '2026-07-09');
   eq(out[1][0].fill, C.C_OLD, 'checked-out row washed grey A...');
   eq(out[1][15].fill, C.C_OLD, '...through P');
   eq(out[2][0].fill, null, 'checks out today -> not grey yet');
   eq(out[3][0].fill, null, 'future stay untouched');
+  eq(out[4][0].fill, null, 'FIELD BUG: end-of-month day numbers are NEXT month, not last month');
+  eq(out[5][0].fill, null, 'month-rollover check-out (30 -> 1) is future, not past');
+}
+
+/* chronological stay resolution: sheets are read in row order */
+{
+  const st = C.resolveStays([
+    { srcRow: 1, ciDate: 'D:1',  coDate: 'D:2' },
+    { srcRow: 2, ciDate: 'D:9',  coDate: 'D:11' },
+    { srcRow: 3, ciDate: 'D:25', coDate: 'D:26' },
+    { srcRow: 4, ciDate: 'D:28', coDate: 'D:2' }
+  ], '2026-07-10');
+  eq(st[1].ci, '2026-07-01', 'first row anchors nearest to today');
+  eq(st[1].co, '2026-07-02', 'check-out follows its check-in');
+  eq(st[3].ci, '2026-07-25', 'tie day (15 back / 15 forward) stays chronological');
+  eq(st[4].ci, '2026-07-28', 'end-of-month day stays in the current month');
+  eq(st[4].co, '2026-08-02', 'check-out rolls into the next month, never backwards');
+  eq(C.candDates('0000-06-31', '2026-07-10').length, 0, 'impossible dates dropped');
+  eq(JSON.stringify(C.candDates('2026-07-22', '2026-07-10')), '["2026-07-22"]', 'full dates are themselves');
+}
+
+/* stale change highlights from earlier pages are not copied forward */
+{
+  const grid = [
+    [{ v: 'Hotel Name' }],
+    [{ v: 'H' }, { v: 'x' }, { v: 'y' }]
+  ];
+  grid._styles = { '1,0': { fill: 'FFFF00' }, '1,1': { fill: 'D9D9D9', strike: true }, '1,2': { fill: 'FF0000' } };
+  const out = C.buildOutput(grid, [], [], [], [{ srcRow: 1, ciDate: '', coDate: '' }]);
+  eq(out[1][0].fill, null, 'yellow change highlight from an earlier page dropped');
+  eq(out[1][1].fill, '#d9d9d9', 'record-keeping grey fill kept');
+  eq(out[1][1].strike, true, 'strikethrough kept');
+  eq(out[1][2].fill, '#ff0000', 'cancellation red kept');
 }
 
 /* THE MONEY GUARD: two separate stays for the same pilot must never merge */

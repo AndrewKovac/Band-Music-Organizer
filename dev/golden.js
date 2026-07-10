@@ -165,6 +165,27 @@ async function runFixture(name) {
   else if (E.unchangedCount != null && unchanged.length !== E.unchangedCount)
     errs.push(`unchanged count: expected ${E.unchangedCount}, got ${unchanged.length}`);
 
+  // --- output page invariants: approve everything and build, exactly like
+  //     the tool's buildPreview does (incl. its item mapping - that mapping
+  //     once dropped the noFill flag and painted pairing cells yellow) ---
+  const updAll = updates.map(u => ({ srcRow: u.h.srcRow,
+    items: u.items.map(it => ({ col: it.col, newText: it.newText, cat: it.cat,
+                                sub: it.sub, confCol: it.confCol, noFill: it.noFill })) }));
+  const out = C.buildOutput(hGrid, updAll,
+    res.cancelledHotel.map(h => h.srcRow), res.newMaster, hRows, todayISO);
+  out.forEach(row => row.forEach(cell => {
+    if (/^Pairing short code/i.test(String(cell.text || '')) &&
+        (cell.fill === '#ffff00' || cell.fill === '#a6c9ec'))
+      errs.push(`pairing cell highlighted on the page: "${cell.text}" (${cell.fill})`);
+    if (String(cell.text || '').indexOf('Property of CargoJet') >= 0)
+      errs.push('output page must not carry the property footer');
+  }));
+  const greyGot = out
+    .filter(row => row.filter(c => c.fill === C.C_OLD).length >= 12)
+    .map(row => String(row[8] && row[8].text || '').toUpperCase()).sort();
+  if (E.grey) checkSet('grey-washed rows', greyGot, wantNames(E.grey));
+  greyGot.forEach(nm => console.log(`GREY      ${nm}  (checked out before today)`));
+
   if (errs.length) {
     failures++;
     console.log('\n✗ FIXTURE FAILED:');

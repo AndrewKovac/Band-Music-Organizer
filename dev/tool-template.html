@@ -7,7 +7,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c92c3a'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='900' font-style='italic' font-size='14' fill='white' text-anchor='middle'%3ECJ%3C/text%3E%3C/svg%3E">
 <title>Hotel Sheet Sync · Cargojet Crew Travel</title>
-<!-- Hotel Sheet Sync v2.1 -->
+<!-- Hotel Sheet Sync v2.2 -->
 <style>
   /* ---- Cargojet palette ----
      main #060000 · accent #c92c3a · header #5e6368 · text #858585  */
@@ -1230,8 +1230,6 @@ function insertionSrcRow(newRec,hotelRows){
   return Infinity;
 }
 
-var FOOTER_TEXT='Property of CargoJet Crew Scheduling Group';
-
 /* hotelGrid: raw grid.  updates: [{srcRow, items:[...]}]  cancels: [srcRow]
    news: [masterRec]  hotelRows: parsed rows (for chronological insertion)  */
 var C_OLD='#808080';
@@ -1249,7 +1247,10 @@ function buildOutput(hotelGrid,updates,cancels,news,hotelRows,todayISO){
       var fl=sty&&sty[ri+','+c];
       if(fl){                       /* keep the sheet's own record-keeping formatting */
         if(fl.strike) cell.strike=true;
-        if(fl.fill) cell.fill='#'+fl.fill.toLowerCase();
+        /* grey (old/cancelled record) and red (cancelled) fills are records
+           and carry forward; yellow/blue/green are CHANGE highlights that
+           belong to the page they were made on - a new page starts clean  */
+        if(fl.fill && (isGreyHex(fl.fill)||isRedHex(fl.fill))) cell.fill='#'+fl.fill.toLowerCase();
         if(fl.fcolor&&fl.fcolor!=='000000') cell.fcolor='#'+fl.fcolor.toLowerCase();
       }
       row.push(cell);
@@ -1259,9 +1260,13 @@ function buildOutput(hotelGrid,updates,cancels,news,hotelRows,todayISO){
   /* bookings that have already checked out are dead weight for the hotel -
      wash the whole row A-P in grey so staff can skip it at a glance        */
   if(todayISO&&hotelRows){
+    var stays=resolveStays(hotelRows,todayISO);
     hotelRows.forEach(function(hr){
-      var cod=resolveToDate(hr.coDate,todayISO);
-      if(cod && cod<todayISO && base[hr.srcRow])
+      var st=stays[hr.srcRow]||{};
+      /* grey only when the stay is CERTAINLY over: a coherent check-in ->
+         check-out span that ended strictly before today. Anything the
+         dates leave ambiguous is left exactly as it is.                  */
+      if(st.ci&&st.co&&st.ci<=st.co&&st.co<todayISO&&base[hr.srcRow])
         base[hr.srcRow].forEach(function(c){ c.fill=C_OLD; });
     });
   }
@@ -1293,9 +1298,6 @@ function buildOutput(hotelGrid,updates,cancels,news,hotelRows,todayISO){
     out.push(base[r]);
   }
   pend.forEach(function(p){ out.push(p.cells); });
-  var footer=[];
-  for(var fc=0;fc<16;fc++) footer.push({text:fc===0?FOOTER_TEXT:'',fill:null,strike:false});
-  out.push(footer);
   return out;
 }
 
@@ -1573,6 +1575,58 @@ function resolveToDate(canon,todayISO){
   return null;
 }
 
+/* All calendar-date readings a canonical date could mean. Full dates have
+   one; yearless month-days try the adjacent years; bare day numbers try the
+   adjacent months. Impossible dates (31-Jun) are dropped.                  */
+function candDates(canon,todayISO){
+  if(!canon) return [];
+  if(/^\d{4}-\d{2}-\d{2}$/.test(canon)&&canon.slice(0,4)!=='0000') return [canon];
+  var ty=+todayISO.slice(0,4), out=[];
+  if(canon.slice(0,4)==='0000'){
+    var mm=+canon.slice(5,7), dd=+canon.slice(8,10);
+    [ty-1,ty,ty+1].forEach(function(y){ out.push(isoParts(y,mm,dd)); });
+  }else if(canon.slice(0,2)==='D:'){
+    var d=+canon.slice(2), tm=+todayISO.slice(5,7);
+    [-1,0,1].forEach(function(k){
+      var mo=tm+k,y=ty;
+      if(mo===0){mo=12;y--;} if(mo===13){mo=1;y++;}
+      out.push(isoParts(y,mo,d));
+    });
+  }
+  return out.filter(function(iso){
+    var t=Date.parse(iso);      /* V8 rolls 31-Jun over to 1-Jul - reject that */
+    return !isNaN(t) && new Date(t).getUTCDate()===+iso.slice(8,10);
+  });
+}
+
+/* Resolve every row's stay to real calendar dates by reading the sheet the
+   way a person does: rows run chronologically, so an ambiguous day number
+   ("28") belongs to whichever month keeps the page in order - and a
+   check-out is never before its own check-in. Resolving each date to the
+   one "nearest today" instead read end-of-month day numbers as LAST month
+   for the first half of a month and called stays weeks away "checked out". */
+function resolveStays(rows,todayISO){
+  var res={}, prevT=null, tT=Date.parse(todayISO), DAY=86400000;
+  function pick(cands,floorT){
+    var best=null,bd=Infinity;
+    cands.forEach(function(iso){
+      var t=Date.parse(iso);
+      if(floorT!=null){ if(t>=floorT&&(best==null||t<Date.parse(best))) best=iso; }
+      else{ var d=Math.abs(t-tT); if(d<bd){bd=d;best=iso;} }
+    });
+    if(best==null&&cands.length) best=cands[cands.length-1];
+    return best;
+  }
+  rows.slice().sort(function(a,b){return a.srcRow-b.srcRow;}).forEach(function(r){
+    /* rows can share a date (same-day crews), so the floor gets 2 days' slack */
+    var ci=pick(candDates(r.ciDate,todayISO), prevT!=null?prevT-2*DAY:null);
+    var co=pick(candDates(r.coDate,todayISO), ci!=null?Date.parse(ci):null);
+    if(ci!=null) prevT=Date.parse(ci);
+    res[r.srcRow]={ci:ci,co:co};
+  });
+  return res;
+}
+
 /* Date+time-aware past check: literally convert the cell contents to a date
    and time and ask if that moment has already happened. A today row with no
    readable time stays actionable (can't prove it's past).                  */
@@ -1622,7 +1676,8 @@ if(typeof module!=='undefined'&&module.exports){
     zipRead:zipRead,isGreyHex:isGreyHex,isRedHex:isRedHex,
     crc32:crc32,zipBuild:zipBuild,appendSheetToXlsx:appendSheetToXlsx,xmlEsc:xmlEsc,colRef:colRef,zipEntries:zipEntries,
     headerField:headerField,buildColMap:buildColMap,anchorDayToUTC:anchorDayToUTC,
-    foldSplitPairings:foldSplitPairings,FOOTER_TEXT:FOOTER_TEXT,fmtDayMon:fmtDayMon,C_OLD:C_OLD};
+    foldSplitPairings:foldSplitPairings,fmtDayMon:fmtDayMon,C_OLD:C_OLD,
+    candDates:candDates,resolveStays:resolveStays};
 }
 </script>
 
@@ -2544,7 +2599,7 @@ if(typeof module!=='undefined'&&module.exports){
     var updates=[];
     R.updates.forEach(function(u){
       var items=u.items.filter(function(it){return it.ck;}).map(function(it){
-        return {col:it.col,newText:effText(it),cat:it.cat,sub:it.sub,confCol:it.confCol};
+        return {col:it.col,newText:effText(it),cat:it.cat,sub:it.sub,confCol:it.confCol,noFill:it.noFill};
       });
       if(items.length) updates.push({srcRow:u.h.srcRow,items:items});
     });

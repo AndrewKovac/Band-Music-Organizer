@@ -91,10 +91,19 @@ number ("4", "7") are understood.
   "Pairing short code X, Y". No new row is created, and the write carries
   **no highlight** — the colour codes are signals for hotel staff, and
   pairing codes aren't relevant to them.
-- **Checked-out rows are washed grey**: any booking whose check-out date is
-  at least a day before today gets its whole row (columns A–P) filled
-  `#808080` on the output page, so hotel staff can skip finished stays at a
-  glance. Change highlights on such a row still win cell-by-cell.
+- **Checked-out rows are washed grey**: a booking whose stay is certainly
+  over — checked in *and* out strictly before today — gets its whole row
+  (columns A–P) filled `#808080` on the output page, so hotel staff can skip
+  finished stays at a glance. Ambiguous dates are read the way a person reads
+  the sheet: rows run chronologically, so a bare day number like "28"
+  belongs to whichever month keeps the page in order (never "the date
+  nearest today", which mistook end-of-month bookings for last month's).
+  Anything the dates leave uncertain is left untouched. Change highlights on
+  a grey row still win cell-by-cell.
+- **Each page starts with clean highlights**: yellow/blue/green change
+  highlights found on the uploaded page belong to the day they were made and
+  are not copied forward. Record-keeping formatting — grey fills, red
+  cancellation fills, strikethrough, font colours — does carry over.
 - **Check-in immutability**: a check-in that has already occurred is locked —
   no check-in date/time proposals, no cancellation of a started stay, no new
   rows in the past. Check-OUT updates on such rows still flow through.
@@ -115,8 +124,8 @@ number ("4", "7") are understood.
   and paid — hotel nights).
 - **Delta view by default**: the review opens showing changed items only;
   "Show all rows" reveals unchanged/out-of-range/historical bookings.
-- **Footer**: trailing notes under the data are dropped and the output always
-  ends with "Property of CargoJet Crew Scheduling Group".
+- **Footer**: trailing notes under the data are dropped; nothing is appended
+  after the last booking row.
 - **Bulk approval asks first**: "Approve all" (global or per-section) pops a
   confirmation, since it skips the one-by-one review.
 - **Calibration**: the `dev/` folder holds the full test pipeline, including
