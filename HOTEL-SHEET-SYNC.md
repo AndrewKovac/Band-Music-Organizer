@@ -36,11 +36,18 @@ network access, so crew names and stay dates never leave the machine.
    - Cancellations → whole row `#ff0000` + strikethrough. Rows on the hotel sheet
      that aren't on the master (loadmasters, maintenance, executives) appear here
      too — leave them unapproved and they are copied through untouched.
-4. **Copy out** — click *Build updated page*, review the preview, then *Copy page
-   to clipboard*. In the hotel workbook add a new tab, name it as shown (e.g.
-   `04JUL AKN` — today's date + initials + shift letter), click A1 and paste.
-   Values, highlights and strikethrough paste together. No new Excel file is
-   ever created.
+4. **Add the page to the workbook** — click *Build updated page*, review the
+   preview, then pick one of three outputs:
+   - **Save into workbook…** — writes the new sheet straight into the uploaded
+     hotel workbook and saves it where you choose (pick the original file to
+     update it in place). Every existing tab is copied byte-for-byte — nothing
+     else in the file changes.
+   - **Download updated workbook** — same thing, delivered as a download with
+     the original filename.
+   - **Copy page to clipboard** — for pasting into an open workbook by hand.
+   The new sheet is named automatically (e.g. `JUL 10 AK N` — today's date +
+   initials + shift letter) and carries all fills, strikethrough, column
+   widths and wrap/alignment.
 
 ## If something looks wrong
 
@@ -109,8 +116,9 @@ number ("4", "7") are understood.
 - **Delta view by default**: the review opens showing changed items only;
   "Show all rows" reveals unchanged/out-of-range/historical bookings.
 - **Footer**: trailing notes under the data are dropped and the output always
-  ends with "Property of CargoJet Crew Scheduling Group". A "Download for
-  Excel" button saves the formatted page as an Excel-openable file.
+  ends with "Property of CargoJet Crew Scheduling Group".
+- **Bulk approval asks first**: "Approve all" (global or per-section) pops a
+  confirmation, since it skips the one-by-one review.
 - **Calibration**: the `dev/` folder holds the full test pipeline, including
   golden fixtures built from real (fake-data) spreadsheets. Any wrong
   suggestion seen in the field becomes a fixture there before it is fixed, so

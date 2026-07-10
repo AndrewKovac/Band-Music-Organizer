@@ -239,7 +239,7 @@ function ok(msg) { console.log('  ✓ ' + msg); }
 
   // ---- clipboard ----
   await page.click('#btn-copy');
-  await page.waitForFunction(() => document.getElementById('copymsg').textContent.includes('Paste into cell A1'));
+  await page.waitForFunction(() => document.getElementById('copymsg').textContent.includes('Copied'));
   const clip = await page.evaluate(async () => {
     const items = await navigator.clipboard.read();
     for (const it of items) if (it.types.includes('text/html'))
@@ -256,11 +256,54 @@ function ok(msg) { console.log('  ✓ ' + msg); }
   ok('clipboard carries fills, strikethrough, column widths, wrap and alignment');
   if (!clip.includes('Property of CargoJet Crew Scheduling Group')) fail('clipboard missing property footer');
 
-  // ---- Excel download ----
+  // ---- workbook download: new sheet added INTO the uploaded file ----
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btn-download')]);
   const fname = dl.suggestedFilename();
-  if (!/\.xls$/.test(fname)) fail('download should be a .xls file, got ' + fname);
-  ok('Download for Excel produces ' + fname);
+  if (fname !== 'hotel.xlsx') fail('download should reuse the uploaded filename, got ' + fname);
+  const dlPath = path.join(here, 'dl-updated.xlsx');
+  await dl.saveAs(dlPath);
+  {
+    const XLSX = require('./package/dist/xlsx.full.min.js');
+    const before = XLSX.read(fs.readFileSync(path.join(here, 'hotel.xlsx')), { type: 'buffer' });
+    const after = XLSX.read(fs.readFileSync(dlPath), { type: 'buffer' });
+    if (after.SheetNames.length !== before.SheetNames.length + 1) fail('updated workbook should have exactly one extra sheet');
+    before.SheetNames.forEach((nm, i) => { if (after.SheetNames[i] !== nm) fail('original tab lost: ' + nm); });
+    const tab = await page.textContent('#tabname-out');
+    if (after.SheetNames[after.SheetNames.length - 1] !== tab.trim()) fail('new sheet not named like the page: ' + after.SheetNames.join('|'));
+    const s0 = before.SheetNames[0];
+    for (const k of ['A1', 'A3', 'C3']) {
+      const a = (before.Sheets[s0][k] || {}).v, b = (after.Sheets[s0][k] || {}).v;
+      if (String(a) !== String(b)) fail('original sheet cell ' + k + ' changed: ' + a + ' -> ' + b);
+    }
+    const nsheet = after.Sheets[after.SheetNames[after.SheetNames.length - 1]];
+    if (!nsheet['A1'] || !String(nsheet['A1'].v).trim()) fail('new sheet has no content at A1');
+    let foundFooter = false;
+    for (const k in nsheet) if (nsheet[k] && String(nsheet[k].v || '').includes('Property of CargoJet Crew Scheduling Group')) foundFooter = true;
+    if (!foundFooter) fail('new sheet missing property footer');
+  }
+  ok('download adds the new sheet into the uploaded workbook, all original tabs byte-identical');
+
+  // ---- approve-all asks for confirmation ----
+  {
+    const countBefore = await page.textContent('#approve-count');
+    let dialogMsg = null;
+    page.once('dialog', async d => { dialogMsg = d.message(); await d.dismiss(); });
+    await page.click('#btn-all');
+    await page.waitForTimeout(200);
+    if (!dialogMsg || !/Approve all/.test(dialogMsg)) fail('approve-all should ask for confirmation, got: ' + dialogMsg);
+    const countAfter = await page.textContent('#approve-count');
+    if (countAfter !== countBefore) fail('dismissed approve-all must not change approvals');
+  }
+  ok('approve-all requires confirmation; cancelling changes nothing');
+
+  // ---- UI trims: badge gone, paste instructions gone, silent style present ----
+  {
+    const body = await page.content();
+    if (body.includes('100% local')) fail('local badge should be removed');
+    if (body.includes('press <b>Ctrl+V</b>')) fail('paste instructions should be removed');
+    if (!body.includes('c-silent')) fail('silent (no-highlight) style missing from the page');
+  }
+  ok('badge and paste instructions removed; silent pairing style present');
 
   // ---- grey/struck detection in the BROWSER (DecompressionStream path) ----
   const page2 = await ctx.newPage();

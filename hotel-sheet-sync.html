@@ -7,7 +7,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c92c3a'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='900' font-style='italic' font-size='14' fill='white' text-anchor='middle'%3ECJ%3C/text%3E%3C/svg%3E">
 <title>Hotel Sheet Sync · Cargojet Crew Travel</title>
-<!-- Hotel Sheet Sync v2.0 -->
+<!-- Hotel Sheet Sync v2.1 -->
 <style>
   /* ---- Cargojet palette ----
      main #060000 · accent #c92c3a · header #5e6368 · text #858585  */
@@ -219,6 +219,9 @@
   td.d-src{outline:2px dashed;outline-offset:-2px;cursor:pointer;border-radius:4px;}
   td.c-sched{outline:2px solid var(--sched);}       td.d-src.c-sched{outline-color:rgba(255,255,0,.55);}
   td.c-name{outline:2px solid var(--name);}         td.d-src.c-name{outline-color:rgba(166,201,236,.55);}
+  /* silent writes (pairing codes): changed but never highlighted on the page */
+  td.c-silent{outline:2px dashed #9aa0a6;}          td.d-src.c-silent{outline-color:rgba(154,160,166,.55);}
+  td.appr.c-silent{background:#f1f1f1;}
   /* row-level proposals (new / cancel): softer dashed outline + faint tint */
   td.c-new{outline:1.5px dashed rgba(181,230,162,.6);background:rgba(181,230,162,.05);}
   td.c-cancel{outline:1.5px dashed rgba(255,60,60,.55);background:rgba(255,0,0,.05);}
@@ -336,10 +339,6 @@
       <b>CargoJet Hotel Comparison Tool</b>
     </div>
     <div class="spacer"></div>
-    <span class="badge">
-      <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M3 6V4a3 3 0 0 1 6 0v2" stroke="#ef8b95" stroke-width="1.5"/><rect x="1.5" y="6" width="9" height="6.5" rx="1.5" fill="#ef8b95"/></svg>
-      100% local — nothing leaves this computer
-    </span>
   </header>
   <div class="subbar">
     <nav class="stepper" aria-label="Progress">
@@ -448,19 +447,14 @@
 
   <!-- STEP 4: output -->
   <div class="card hidden" id="step4">
-    <h2><span class="stepnum">4</span> Copy the new page into the hotel workbook</h2>
+    <h2><span class="stepnum">4</span> Add the new page to the hotel workbook</h2>
     <div class="row">
-      <span class="cnt">New page name:&nbsp; <span class="tabname" id="tabname-out"></span></span>
-      <button class="primary" id="btn-copy">Copy page to clipboard</button>
-      <button id="btn-download" title="Save an Excel-openable file with all formatting (Excel may show a one-time format notice)">Download for Excel</button>
+      <span class="cnt">New sheet name:&nbsp; <span class="tabname" id="tabname-out"></span></span>
+      <button class="primary" id="btn-save" title="Adds the new sheet to the uploaded workbook and saves it — every existing tab is kept exactly as it was">Save into workbook…</button>
+      <button id="btn-download" title="Adds the new sheet to the uploaded workbook and downloads the updated file — every existing tab is kept exactly as it was">Download updated workbook</button>
+      <button id="btn-copy">Copy page to clipboard</button>
       <span id="copymsg" class="cnt" aria-live="polite"></span>
     </div>
-    <ol class="steps-inline">
-      <li>Open the hotel workbook in Excel and add a new sheet (the <b>+</b> next to the tab names).</li>
-      <li>Rename the new tab to the page name shown above.</li>
-      <li>Click cell <b>A1</b> and press <b>Ctrl+V</b> — values, highlights, strikethrough, column widths
-          and wrap/alignment all paste together.</li>
-    </ol>
     <div id="previewbox"></div>
   </div>
 
@@ -693,11 +687,12 @@ function zipEntries(u8){
   var count=dv.getUint16(i+10,true), p=dv.getUint32(i+16,true), out=[];
   for(var k=0;k<count;k++){
     if(dv.getUint32(p,true)!==0x02014b50) break;
-    var method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true),
+    var method=dv.getUint16(p+10,true), crc=dv.getUint32(p+16,true),
+        csize=dv.getUint32(p+20,true), usize=dv.getUint32(p+24,true),
         nlen=dv.getUint16(p+28,true), elen=dv.getUint16(p+30,true), clen=dv.getUint16(p+32,true),
         lho=dv.getUint32(p+42,true), name='';
     for(var q=0;q<nlen;q++) name+=String.fromCharCode(u8[p+46+q]);
-    out.push({name:name,method:method,csize:csize,lho:lho});
+    out.push({name:name,method:method,csize:csize,lho:lho,crc:crc,usize:usize});
     p+=46+nlen+elen+clen;
   }
   return out;
@@ -1364,6 +1359,188 @@ function outputToTsv(out){
   }).join('\r\n');
 }
 
+/* ---------- write the new page INTO the uploaded workbook ----------------
+   The original zip entries are copied byte-for-byte (compressed data, CRCs
+   and all), so every existing tab, style, chart and macro survives exactly
+   as uploaded. Only four small XML parts are edited and one sheet added.  */
+function xmlEsc(t){
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+function colRef(i){                    /* 0 -> A ... 15 -> P */
+  return i<26 ? String.fromCharCode(65+i)
+              : String.fromCharCode(64+Math.floor(i/26))+String.fromCharCode(65+(i%26));
+}
+var CRC_TABLE=null;
+function crc32(u8){
+  if(!CRC_TABLE){
+    CRC_TABLE=new Uint32Array(256);
+    for(var n=0;n<256;n++){
+      var c=n;
+      for(var k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);
+      CRC_TABLE[n]=c>>>0;
+    }
+  }
+  var crc=0xFFFFFFFF;
+  for(var i=0;i<u8.length;i++) crc=CRC_TABLE[(crc^u8[i])&0xFF]^(crc>>>8);
+  return (crc^0xFFFFFFFF)>>>0;
+}
+function zipRawData(u8,e){             /* compressed bytes of an existing entry */
+  var dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  var nlen=dv.getUint16(e.lho+26,true), elen=dv.getUint16(e.lho+28,true);
+  var start=e.lho+30+nlen+elen;
+  return u8.slice(start,start+e.csize);
+}
+/* parts: [{name, method, crc, usize, data(compressed-or-stored bytes)}] */
+function zipBuild(parts){
+  var chunks=[], off=0;
+  function wr(b){ chunks.push(b); off+=b.length; }
+  function u16(v){ return new Uint8Array([v&255,(v>>8)&255]); }
+  function u32(v){ return new Uint8Array([v&255,(v>>8)&255,(v>>16)&255,(v>>>24)&255]); }
+  var cen=[];
+  parts.forEach(function(p){
+    var nm=new TextEncoder().encode(p.name), lho=off;
+    wr(u32(0x04034b50)); wr(u16(20)); wr(u16(0x800)); wr(u16(p.method)); wr(u32(0));
+    wr(u32(p.crc)); wr(u32(p.data.length)); wr(u32(p.usize));
+    wr(u16(nm.length)); wr(u16(0)); wr(nm); wr(p.data);
+    cen.push({nm:nm,p:p,lho:lho});
+  });
+  var cenStart=off;
+  cen.forEach(function(c){
+    wr(u32(0x02014b50)); wr(u16(20)); wr(u16(20)); wr(u16(0x800)); wr(u16(c.p.method)); wr(u32(0));
+    wr(u32(c.p.crc)); wr(u32(c.p.data.length)); wr(u32(c.p.usize));
+    wr(u16(c.nm.length)); wr(u16(0)); wr(u16(0)); wr(u16(0)); wr(u16(0)); wr(u32(0));
+    wr(u32(c.lho)); wr(c.nm);
+  });
+  var cenSize=off-cenStart;
+  wr(u32(0x06054b50)); wr(u16(0)); wr(u16(0)); wr(u16(cen.length)); wr(u16(cen.length));
+  wr(u32(cenSize)); wr(u32(cenStart)); wr(u16(0)); /* comment length */
+  var total=new Uint8Array(off), pos=0;
+  chunks.forEach(function(b){ total.set(b,pos); pos+=b.length; });
+  return total;
+}
+/* Excel column width (characters) from the paste geometry in pixels */
+var XLSX_COL_W=COL_PX.map(function(px){ return Math.round(((px-5)/7)*100)/100; });
+
+async function appendSheetToXlsx(u8,tab,out){
+  var entries=zipEntries(u8);
+  if(!entries.length) throw new Error('The uploaded file is not a valid .xlsx workbook.');
+  function has(n){ return entries.some(function(e){return e.name===n;}); }
+  var ct  =await zipRead(u8,'[Content_Types].xml');
+  var wbx =await zipRead(u8,'xl/workbook.xml');
+  var rels=await zipRead(u8,'xl/_rels/workbook.xml.rels');
+  var sty =await zipRead(u8,'xl/styles.xml');
+  if(!ct||!wbx||!rels) throw new Error('Workbook structure not recognised.');
+
+  /* fresh part name, relationship id, sheetId and a non-clashing tab name */
+  var n=1; while(has('xl/worksheets/sheet'+n+'.xml')) n++;
+  var path='xl/worksheets/sheet'+n+'.xml';
+  var rid=1; (rels.match(/Id="rId(\d+)"/g)||[]).forEach(function(m){ rid=Math.max(rid,+m.match(/\d+/)[0]+1); });
+  var sid=1; (wbx.match(/sheetId="(\d+)"/g)||[]).forEach(function(m){ sid=Math.max(sid,+m.match(/\d+/)[0]+1); });
+  var names={}; (wbx.match(/<sheet [^>]*name="([^"]*)"/g)||[]).forEach(function(m){
+    names[m.match(/name="([^"]*)"/)[1]]=1;
+  });
+  var name=tab, k2=2;
+  while(names[xmlEsc(name)]||names[name]) name=tab+' ('+(k2++)+')';
+
+  /* styles: append the fonts/fills/xfs the page needs (never touch existing
+     indexes). If styles.xml is oddly shaped, degrade to unstyled cells.    */
+  var styleIdx=null, addFonts=[], addFills=[], addXfs=[];
+  if(sty && /<fonts count="\d+"/.test(sty) && /<fills count="\d+"/.test(sty) &&
+     /<cellXfs count="\d+"/.test(sty) && sty.indexOf('</fonts>')>=0 &&
+     sty.indexOf('</fills>')>=0 && sty.indexOf('</cellXfs>')>=0){
+    var baseFonts=+sty.match(/<fonts count="(\d+)"/)[1];
+    var baseFills=+sty.match(/<fills count="(\d+)"/)[1];
+    var baseXfs  =+sty.match(/<cellXfs count="(\d+)"/)[1];
+    var fontMap={}, fillMap={}, xfMap={};
+    function fontId(strike,fcolor){
+      var key=(strike?'s':'')+'|'+(fcolor||'');
+      if(fontMap[key]==null){
+        addFonts.push('<font>'+(strike?'<strike/>':'')+
+          (fcolor?'<color rgb="FF'+fcolor.replace('#','').toUpperCase()+'"/>':'')+
+          '<sz val="11"/><name val="Calibri"/></font>');
+        fontMap[key]=baseFonts+addFonts.length-1;
+      }
+      return fontMap[key];
+    }
+    function fillId(hex){
+      if(!hex) return 0;
+      var key=hex.replace('#','').toUpperCase();
+      if(fillMap[key]==null){
+        addFills.push('<fill><patternFill patternType="solid"><fgColor rgb="FF'+key+
+                      '"/><bgColor rgb="FF'+key+'"/></patternFill></fill>');
+        fillMap[key]=baseFills+addFills.length-1;
+      }
+      return fillMap[key];
+    }
+    styleIdx=function(cell,c){
+      var conf=(c>=12&&c<=14);          /* confirmation columns stay text */
+      var key=[cell.fill||'',cell.strike?1:0,cell.fcolor||'',conf?1:0].join('|');
+      if(xfMap[key]==null){
+        addXfs.push('<xf numFmtId="'+(conf?49:0)+'" fontId="'+fontId(cell.strike,cell.fcolor)+
+          '" fillId="'+fillId(cell.fill)+'" borderId="0" xfId="0" applyNumberFormat="1" '+
+          'applyFont="1" applyFill="1" applyAlignment="1">'+
+          '<alignment horizontal="left" vertical="center" wrapText="1"/></xf>');
+        xfMap[key]=baseXfs+addXfs.length-1;
+      }
+      return xfMap[key];
+    };
+  }
+
+  var colsXml=XLSX_COL_W.map(function(w,i){
+    return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>';
+  }).join('');
+  var rowsXml=out.map(function(row,ri){
+    var cells='';
+    for(var c=0;c<16;c++){
+      var cell=row[c]||{text:'',fill:null,strike:false};
+      var ref=colRef(c)+(ri+1);
+      var sAttr=styleIdx?(' s="'+styleIdx(cell,c)+'"'):'';
+      var txt=(cell.text==null)?'':String(cell.text);
+      cells+= txt===''
+        ? '<c r="'+ref+'"'+sAttr+'/>'
+        : '<c r="'+ref+'"'+sAttr+' t="inlineStr"><is><t xml:space="preserve">'+xmlEsc(txt)+'</t></is></c>';
+    }
+    return '<row r="'+(ri+1)+'">'+cells+'</row>';
+  }).join('');
+  var sheetXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+    '<sheetViews><sheetView workbookViewId="0"/></sheetViews>'+
+    '<cols>'+colsXml+'</cols><sheetData>'+rowsXml+'</sheetData></worksheet>';
+
+  if(styleIdx){
+    sty=sty
+      .replace(/<fonts count="(\d+)"/,function(m,c){ return '<fonts count="'+(+c+addFonts.length)+'"'; })
+      .replace('</fonts>',addFonts.join('')+'</fonts>')
+      .replace(/<fills count="(\d+)"/,function(m,c){ return '<fills count="'+(+c+addFills.length)+'"'; })
+      .replace('</fills>',addFills.join('')+'</fills>')
+      .replace(/<cellXfs count="(\d+)"/,function(m,c){ return '<cellXfs count="'+(+c+addXfs.length)+'"'; })
+      .replace('</cellXfs>',addXfs.join('')+'</cellXfs>');
+  }
+  /* the workbook may bind the relationships namespace to a prefix other than r: */
+  var rp=(wbx.match(/xmlns:(\w+)="http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships"/)||[0,'r'])[1];
+  wbx=wbx.replace('</sheets>','<sheet name="'+xmlEsc(name)+'" sheetId="'+sid+'" '+rp+':id="rId'+rid+'"/></sheets>');
+  rels=rels.replace('</Relationships>',
+    '<Relationship Id="rId'+rid+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+n+'.xml"/></Relationships>');
+  ct=ct.replace('</Types>',
+    '<Override PartName="/'+path+'" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>');
+
+  var replaced={'[Content_Types].xml':ct,'xl/workbook.xml':wbx,
+                'xl/_rels/workbook.xml.rels':rels};
+  if(styleIdx) replaced['xl/styles.xml']=sty;
+  var enc=new TextEncoder();
+  var parts=entries.map(function(e){
+    if(replaced[e.name]!=null){
+      var d=enc.encode(replaced[e.name]);
+      return {name:e.name,method:0,crc:crc32(d),usize:d.length,data:d};
+    }
+    return {name:e.name,method:e.method,crc:e.crc,usize:e.usize,data:zipRawData(u8,e)};
+  });
+  var sd=enc.encode(sheetXml);
+  parts.push({name:path,method:0,crc:crc32(sd),usize:sd.length,data:sd});
+  return zipBuild(parts);
+}
+
 /* Page-tab naming as used in the real workbooks: "JUN 29 CR M" */
 function computeTabName(date,initials,suffix){
   var parts=[MONTH_NAMES[date.getMonth()]+' '+pad2(date.getDate())];
@@ -1465,6 +1642,7 @@ if(typeof module!=='undefined'&&module.exports){
     canonPairing:canonPairing,isPastISO:isPastISO,isPastDT:isPastDT,isoParts:isoParts,resolveToDate:resolveToDate,
     readStyleGrid:readStyleGrid,isDeadStyle:isDeadStyle,dateDistDays:dateDistDays,
     zipRead:zipRead,isGreyHex:isGreyHex,isRedHex:isRedHex,
+    crc32:crc32,zipBuild:zipBuild,appendSheetToXlsx:appendSheetToXlsx,xmlEsc:xmlEsc,colRef:colRef,zipEntries:zipEntries,
     headerField:headerField,buildColMap:buildColMap,anchorDayToUTC:anchorDayToUTC,
     foldSplitPairings:foldSplitPairings,FOOTER_TEXT:FOOTER_TEXT,fmtDayMon:fmtDayMon,C_OLD:C_OLD};
 }
@@ -1927,6 +2105,7 @@ if(typeof module!=='undefined'&&module.exports){
   /* ------- render: side-by-side dashboard cards ------- */
   function catClass(it){
     if(it.cat==='removal') return 'c-cancel';
+    if(it.noFill) return 'c-silent';          /* written, but never highlighted */
     return it.cat==='name'?'c-name':'c-sched';
   }
 
@@ -2073,9 +2252,11 @@ if(typeof module!=='undefined'&&module.exports){
           '<table class="diff"><tr><th style="width:26px"></th><th>Field</th><th>Hotel sheet (current)</th><th>Master (new)</th></tr>';
         u.items.forEach(function(it,ii){
           if(it.cat==='removal') return;   /* shown in the cancellations section */
-          var tag=it.cat==='name'
-            ?'<span class="tag" style="background:'+C_NAME+'">NAME</span>'
-            :'<span class="tag" style="background:'+C_SCHED+'">SCHED</span>';
+          var tag=it.noFill
+            ?'<span class="tag" style="background:#c9c9c9">NO HIGHLIGHT</span>'
+            :(it.cat==='name'
+              ?'<span class="tag" style="background:'+C_NAME+'">NAME</span>'
+              :'<span class="tag" style="background:'+C_SCHED+'">SCHED</span>');
           var modeSel=it.canBoth
             ?'<select data-updmode="'+ui+':'+ii+'" aria-label="Pairing code action">'+
               '<option value="replace"'+(it.mode!=='both'?' selected':'')+'>replace</option>'+
@@ -2221,7 +2402,13 @@ if(typeof module!=='undefined'&&module.exports){
     afterToggle(null);
     toast(val?'All changes approved':'All approvals cleared');
   }
-  $('btn-all').addEventListener('click',function(){ setAll(true); });
+  $('btn-all').addEventListener('click',function(){
+    var c=approvedCounts();
+    if(c.total && !confirm('Approve all '+c.total+' proposed changes at once?\n\n'+
+       'Bulk approval skips the one-by-one review — every schedule change, name change, '+
+       'new booking and cancellation will be written to the page. Continue?')) return;
+    setAll(true);
+  });
   $('btn-none').addEventListener('click',function(){ setAll(false); });
 
   function syncCardChecks(){
@@ -2252,6 +2439,7 @@ if(typeof module!=='undefined'&&module.exports){
     if(!act) return;
     var R=S.result, val=act.slice(0,4)==='all-';
     var kind=act.slice(act.indexOf('-')+1);
+    if(val && !confirm('Approve every item in this section without reviewing them one by one?')) return;
     if(kind==='upd') R.updates.forEach(function(u){u.items.forEach(function(it){it.ck=val;});});
     if(kind==='new') R.news.forEach(function(n){n.ck=val;});
     if(kind==='can') R.cancels.forEach(function(c){c.ck=val;});
@@ -2285,9 +2473,9 @@ if(typeof module!=='undefined'&&module.exports){
         (itr.ck?'Approved ✓ — click to undo':'Approve removal (red + struck)')+'</button>';
     }else if(e.kind==='update'&&ii!=null){
       var it=e.u.items[ii];
-      var color=it.cat==='name'?C_NAME:C_SCHED;
+      var color=it.noFill?'#9aa0a6':(it.cat==='name'?C_NAME:C_SCHED);
       html='<div class="t-label"><span class="dot" style="background:'+color+'"></span>'+escHtml(it.label)+
-        (it.cat==='name'?' · name change':' · schedule change')+'</div>'+
+        (it.noFill?' · written, no highlight':(it.cat==='name'?' · name change':' · schedule change'))+'</div>'+
         '<div class="t-change"><span class="t-old">'+escHtml(it.oldText||'(blank)')+'</span>'+
         '<span class="t-arrow">→</span><span class="t-new">'+escHtml(it.newText||'(removed)')+'</span></div>'+
         (it.note?'<div class="t-warnnote">'+escHtml(it.note)+'</div>':'')+
@@ -2417,7 +2605,7 @@ if(typeof module!=='undefined'&&module.exports){
       if(ok){
         btn.classList.add('copied'); btn.textContent='Copied ✓';
         setTimeout(function(){ btn.classList.remove('copied'); btn.textContent='Copy page to clipboard'; },2200);
-        $('copymsg').textContent='Paste into cell A1 of the new "'+tabName()+'" tab.';
+        $('copymsg').textContent='Copied.';
         toast('Page copied — paste into Excel with Ctrl+V');
       }else{
         $('copymsg').textContent='Copy failed — select the preview table below and press Ctrl+C instead.';
@@ -2441,27 +2629,43 @@ if(typeof module!=='undefined'&&module.exports){
     }catch(e){ done(false); }
   }
 
-  /* Excel-openable download: HTML table with mso styling saved as .xls keeps
-     fills, strikethrough, widths, wrap and alignment (CE xlsx writers drop
-     styles, so this is the format-faithful route).                          */
+  /* The new page is written INTO the uploaded workbook: the original zip
+     entries are copied byte-for-byte, so every existing tab survives
+     untouched — only the new sheet (values + fills + strikethrough +
+     widths + wrap/alignment) is added at the end.                        */
+  function updatedWorkbookBytes(){
+    return appendSheetToXlsx(S.hotel.u8, tabName(), S.output);
+  }
   $('btn-download').addEventListener('click',function(){
-    if(!S.output) return;
-    try{
-      var doc='<html xmlns:o="urn:schemas-microsoft-com:office:office" '+
-        'xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">'+
-        '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>'+
-        '<x:Name>'+escHtml(tabName())+'</x:Name>'+
-        '<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'+
-        '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->'+
-        '</head><body>'+outputToClipboardHtml(S.output)+'</body></html>';
-      var blob=new Blob(['﻿',doc],{type:'application/vnd.ms-excel'});
+    if(!S.output||!S.hotel) return;
+    updatedWorkbookBytes().then(function(bytes){
+      var blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
       var a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
-      a.download=tabName().replace(/\s+/g,'_')+'.xls';
+      a.download=S.hotel.file;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
-      toast('Saved — Excel opens it with all formatting intact');
-    }catch(err){ fatal('Download failed:\n'+(err&&err.stack||err)); }
+      toast('Downloaded '+S.hotel.file+' with the new "'+tabName()+'" sheet added');
+    }).catch(function(err){ fatal('Building the updated workbook failed:\n'+(err&&err.stack||err)); });
+  });
+  if(!window.showSaveFilePicker) $('btn-save').classList.add('hidden');
+  $('btn-save').addEventListener('click',function(){
+    if(!S.output||!S.hotel) return;
+    updatedWorkbookBytes().then(function(bytes){
+      return window.showSaveFilePicker({
+        suggestedName:S.hotel.file,
+        types:[{description:'Excel workbook',
+                accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]
+      }).then(function(h){ return h.createWritable(); })
+        .then(function(w){ return w.write(bytes).then(function(){ return w.close(); }); })
+        .then(function(){
+          $('copymsg').textContent='Saved with the new "'+tabName()+'" sheet added.';
+          toast('Workbook saved — existing tabs untouched');
+        });
+    }).catch(function(err){
+      if(err && (err.name==='AbortError'||err.name==='NotAllowedError')) return; /* user cancelled */
+      fatal('Saving the workbook failed:\n'+(err&&err.stack||err));
+    });
   });
 
   refreshStepper();

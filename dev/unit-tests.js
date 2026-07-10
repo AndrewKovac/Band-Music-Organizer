@@ -525,5 +525,46 @@ assert(C.hotelSimilarity('Hilton Anchorage', 'Marriott Fairbanks') === 0, 'diffe
   eq(sg['2,2'].fill, 'FF0000', 'red fill detected');
   eq(C.isDeadStyle(sg['2,0']), true, 'grey+struck = dead');
   eq(C.isDeadStyle(sg['1,0'] || null), false, 'plain cells are not dead');
+  /* appendSheetToXlsx: new page written INTO the workbook, originals verbatim */
+  {
+    const src = new Uint8Array(fsm.readFileSync(__dirname + '/fixtures/real1.hotel.xlsx'));
+    const before = global.XLSX.read(src, { type: 'buffer' });
+    const mk = (t, o) => Object.assign({ text: t, fill: null, strike: false }, o || {});
+    const out = [];
+    for (let r = 0; r < 3; r++) {
+      const row = [];
+      for (let c = 0; c < 16; c++) row.push(mk(r === 0 ? 'H' + c : (r === 1 && c === 12 ? '007' : 'r' + r + 'c' + c)));
+      out.push(row);
+    }
+    out[1][0] = mk('YEL', { fill: '#ffff00' });
+    out[1][1] = mk('CAN', { fill: '#ff0000', strike: true });
+    out[2][0] = mk('GRY', { fill: '#808080' });
+    out[2][1] = mk('', { fill: '#b5e6a2' });          /* empty cell keeps its fill */
+    const bytes = await C.appendSheetToXlsx(src, 'JUL 10 AK N', out);
+    const wb2 = global.XLSX.read(bytes, { type: 'buffer' });
+    eq(wb2.SheetNames.length, before.SheetNames.length + 1, 'one sheet added');
+    before.SheetNames.forEach((nm, i) => eq(wb2.SheetNames[i], nm, 'original tab kept: ' + nm));
+    eq(wb2.SheetNames[wb2.SheetNames.length - 1], 'JUL 10 AK N', 'new tab named like the page');
+    /* original sheet content untouched (raw entries copied byte-for-byte) */
+    const s0 = before.SheetNames[0];
+    const a1 = k => (before.Sheets[s0][k] || {}).v, b1 = k => (wb2.Sheets[s0][k] || {}).v;
+    ['A1', 'A5', 'C5', 'H5'].forEach(k => eq(String(b1(k)), String(a1(k)), 'original cell ' + k + ' unchanged'));
+    const ns = wb2.Sheets['JUL 10 AK N'];
+    eq(ns['A1'].v, 'H0', 'new sheet A1 value');
+    eq(String(ns['M2'].v), '007', 'confirmation column kept as text (leading zero survives)');
+    /* styles landed in styles.xml and the sheet references them */
+    const sty2 = await C.zipRead(bytes, 'xl/styles.xml');
+    for (const hex of ['FFFFFF00', 'FFFF0000', 'FF808080', 'FFB5E6A2'])
+      eq(sty2.includes(hex), true, 'fill ' + hex + ' present in styles.xml');
+    eq(sty2.includes('<strike/>'), true, 'strike font added');
+    eq(sty2.includes('numFmtId="49"'), true, 'text format for confirmation columns');
+    eq(sty2.includes('wrapText="1"'), true, 'wrap alignment applied');
+    const names = C.zipEntries(bytes).map(e => e.name);
+    eq(names.length, C.zipEntries(src).length + 1, 'exactly one zip entry added');
+    /* duplicate tab name gets a suffix instead of corrupting the workbook */
+    const bytes2 = await C.appendSheetToXlsx(bytes, 'JUL 10 AK N', out);
+    const wb3 = global.XLSX.read(bytes2, { type: 'buffer' });
+    eq(wb3.SheetNames[wb3.SheetNames.length - 1], 'JUL 10 AK N (2)', 'clashing tab name suffixed');
+  }
   console.log('ALL ' + n + ' ASSERTIONS PASSED (+ inline asserts)');
 })().catch(e => { console.error(e); process.exit(1); });
