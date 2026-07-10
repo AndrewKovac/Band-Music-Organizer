@@ -419,6 +419,42 @@ eq(C.anchorDayToUTC('D:07', 'garbage'), null, 'bad UTC text -> null');
 assert(C.hotelSimilarity('Hilton Anchorage', 'HILTON - ANCHORAGE DOWNTOWN') > 0.5, 'similar hotels score high');
 assert(C.hotelSimilarity('Hilton Anchorage', 'Marriott Fairbanks') === 0, 'different hotels score 0');
 
+/* pairing writes (split-combined codes) carry no highlight for the hotel */
+{
+  const m1 = rec('master', { names: ['Bob, Nancy'], ciD: '8JUL26', coD: '10JUL26', inF: '1507', pair: 'SDKJ', srcRow: 3 });
+  const m2 = rec('master', { names: ['Bob, Tai Wai David'], ciD: '8JUL26', coD: '10JUL26', inF: '1507', pair: 'KJWE', srcRow: 4 });
+  const h = rec('hotel', { names: ['Bob, Nancy', 'Bob, Tai Wai David'], ciD: '8JUL26', coD: '10JUL26', inF: '1507',
+    pair: 'Pairing short code SDKJ', srcRow: 1 });
+  const res = C.foldSplitPairings(C.matchRows([m1, m2], [h]));
+  const items = C.diffPair(res.matches[0].m, h);
+  const pi = items.find(i => i.col === 11);
+  eq(pi.noFill, true, 'pairing item flagged noFill');
+  const grid = [[{ v: 'Hotel Name' }], [{ v: 'H' }, null, null, null, null, null, null, null, null, null, null, { v: 'Pairing short code SDKJ' }]];
+  const out = C.buildOutput(grid, [{ srcRow: 1, items: [pi] }], [], [], [{ srcRow: 1, ciDate: '', coDate: '' }]);
+  eq(out[1][11].text, 'Pairing short code SDKJ, KJWE', 'combined code written');
+  eq(out[1][11].fill, null, 'no highlight on the pairing cell');
+}
+
+/* grey wash for bookings that already checked out */
+{
+  const grid = [
+    [{ v: 'Hotel Name' }],
+    [{ v: 'H' }, null, null, { v: '6-Jul' }, null, null, { v: '8-Jul' }, null, { v: 'Out, Olivia' }],
+    [{ v: 'H' }, null, null, { v: '8-Jul' }, null, null, { v: '9-Jul' }, null, { v: 'Today, Tom' }],
+    [{ v: 'H' }, null, null, { v: '10-Jul' }, null, null, { v: '11-Jul' }, null, { v: 'Future, Fred' }]
+  ];
+  const hRows = [
+    { srcRow: 1, ciDate: C.parseDateText('6-Jul'), coDate: C.parseDateText('8-Jul') },
+    { srcRow: 2, ciDate: C.parseDateText('8-Jul'), coDate: C.parseDateText('9-Jul') },
+    { srcRow: 3, ciDate: C.parseDateText('10-Jul'), coDate: C.parseDateText('11-Jul') }
+  ];
+  const out = C.buildOutput(grid, [], [], [], hRows, '2026-07-09');
+  eq(out[1][0].fill, C.C_OLD, 'checked-out row washed grey A...');
+  eq(out[1][15].fill, C.C_OLD, '...through P');
+  eq(out[2][0].fill, null, 'checks out today -> not grey yet');
+  eq(out[3][0].fill, null, 'future stay untouched');
+}
+
 /* THE MONEY GUARD: two separate stays for the same pilot must never merge */
 {
   const hA = rec('hotel',  { names: ['Diaz, Pilot'], ciD: '7-Jul', ciT: '05:34', coD: '8-Jul', coT: '05:18', srcRow: 2 });

@@ -7,7 +7,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c92c3a'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='900' font-style='italic' font-size='14' fill='white' text-anchor='middle'%3ECJ%3C/text%3E%3C/svg%3E">
 <title>Hotel Sheet Sync · Cargojet Crew Travel</title>
-<!-- Hotel Sheet Sync v1.9 -->
+<!-- Hotel Sheet Sync v2.0 -->
 <style>
   /* ---- Cargojet palette ----
      main #060000 · accent #c92c3a · header #5e6368 · text #858585  */
@@ -1146,7 +1146,8 @@ function diffPair(m,h,opts){
      a code difference alone is never proposed. The one exception: a silent
      pairing split, where the combined "Pairing short code X, Y" is written. */
   if(m.pairingCombined && m.pairing!=='' && m.pairing!==h.pairing)
-    items.push({col:11,label:'Pairing code',oldText:h.disp[11],newText:m.disp[11],cat:'schedule'});
+    items.push({col:11,label:'Pairing code',oldText:h.disp[11],newText:m.disp[11],cat:'schedule',noFill:true,
+                note:'Written without a highlight - pairing codes are not relevant to hotel staff.'});
   var mN=canonText(m.notes), hN=canonText(h.notes);
   if(mN!=='' && mN!==hN)
     items.push({col:15,label:'Notes',oldText:h.notes,newText:m.notes,cat:'schedule'});
@@ -1260,7 +1261,9 @@ var FOOTER_TEXT='Property of CargoJet Crew Scheduling Group';
 
 /* hotelGrid: raw grid.  updates: [{srcRow, items:[...]}]  cancels: [srcRow]
    news: [masterRec]  hotelRows: parsed rows (for chronological insertion)  */
-function buildOutput(hotelGrid,updates,cancels,news,hotelRows){
+var C_OLD='#808080';
+
+function buildOutput(hotelGrid,updates,cancels,news,hotelRows,todayISO){
   /* drop any footer/notes rows trailing the data, then re-append our own */
   var lastData=-1;
   (hotelRows||[]).forEach(function(r){ if(r.srcRow>lastData) lastData=r.srcRow; });
@@ -1280,12 +1283,21 @@ function buildOutput(hotelGrid,updates,cancels,news,hotelRows){
     }
     return row;
   });
+  /* bookings that have already checked out are dead weight for the hotel -
+     wash the whole row A-P in grey so staff can skip it at a glance        */
+  if(todayISO&&hotelRows){
+    hotelRows.forEach(function(hr){
+      var cod=resolveToDate(hr.coDate,todayISO);
+      if(cod && cod<todayISO && base[hr.srcRow])
+        base[hr.srcRow].forEach(function(c){ c.fill=C_OLD; });
+    });
+  }
   updates.forEach(function(u){
     u.items.forEach(function(it){
       var cell=base[u.srcRow][it.col];
       cell.text=it.newText;
       if(it.cat==='removal'){ cell.fill=C_CANCEL; cell.strike=true; }
-      else cell.fill=(it.cat==='name')?C_NAME:C_SCHED;
+      else if(!it.noFill) cell.fill=(it.cat==='name')?C_NAME:C_SCHED;
       if(it.sub==='add' && it.confCol!=null){
         base[u.srcRow][it.confCol].text='NEW';
         base[u.srcRow][it.confCol].fill=C_NAME;
@@ -1454,7 +1466,7 @@ if(typeof module!=='undefined'&&module.exports){
     readStyleGrid:readStyleGrid,isDeadStyle:isDeadStyle,dateDistDays:dateDistDays,
     zipRead:zipRead,isGreyHex:isGreyHex,isRedHex:isRedHex,
     headerField:headerField,buildColMap:buildColMap,anchorDayToUTC:anchorDayToUTC,
-    foldSplitPairings:foldSplitPairings,FOOTER_TEXT:FOOTER_TEXT,fmtDayMon:fmtDayMon};
+    foldSplitPairings:foldSplitPairings,FOOTER_TEXT:FOOTER_TEXT,fmtDayMon:fmtDayMon,C_OLD:C_OLD};
 }
 </script>
 
@@ -2372,7 +2384,9 @@ if(typeof module!=='undefined'&&module.exports){
     });
     var cancels=R.cancels.filter(function(c){return c.ck;}).map(function(c){return c.h.srcRow;});
     var news=R.news.filter(function(n){return n.ck;}).map(function(n){return n.m;});
-    S.output=buildOutput(S.hotel.grid,updates,cancels,news,S.hotel.rows);
+    var bn=new Date();
+    S.output=buildOutput(S.hotel.grid,updates,cancels,news,S.hotel.rows,
+                         isoParts(bn.getFullYear(),bn.getMonth()+1,bn.getDate()));
     $('tabname-out').textContent=tabName();
     /* preview mirrors the paste geometry: widths, wrap, alignment, fills */
     var h=['<table style="width:'+COL_PX.reduce(function(a,b){return a+b;},0)+'px"><colgroup>'];

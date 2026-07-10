@@ -81,7 +81,13 @@ number ("4", "7") are understood.
   check-in date is the strongest signal). The one write happens on a **silent
   pairing split** — when the master lists one hotel row's crew as separate
   rows, the hotel row is kept whole and its pairing cell becomes
-  "Pairing short code X, Y". No new row is created.
+  "Pairing short code X, Y". No new row is created, and the write carries
+  **no highlight** — the colour codes are signals for hotel staff, and
+  pairing codes aren't relevant to them.
+- **Checked-out rows are washed grey**: any booking whose check-out date is
+  at least a day before today gets its whole row (columns A–P) filled
+  `#808080` on the output page, so hotel staff can skip finished stays at a
+  glance. Change highlights on such a row still win cell-by-cell.
 - **Check-in immutability**: a check-in that has already occurred is locked —
   no check-in date/time proposals, no cancellation of a started stay, no new
   rows in the past. Check-OUT updates on such rows still flow through.
