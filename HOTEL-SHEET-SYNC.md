@@ -133,6 +133,48 @@ number ("4", "7") are understood.
   suggestion seen in the field becomes a fixture there before it is fixed, so
   accuracy only ratchets up.
 
+## Batch night mode (v3.0)
+
+The **Batch night mode** button in the top bar turns the whole night into one
+pass — the classic one-hotel flow stays exactly as it was underneath.
+
+1. **One folder grant** — *Hotel sheets folder* uses the browser's folder
+   picker (Chrome/Edge). The tool drills into this year's and month's
+   subfolder automatically (understands `2026`, `07`, `7`, `JUL`, `July`,
+   `07 JUL`…), lists the spreadsheets, and auto-ticks every file whose name
+   starts with **Hotel Requirements** (prefix editable, remembered). If the
+   auto-drill can't decide, subfolder chips let you navigate; if the browser
+   has no folder API at all, a multi-file picker takes over (outputs then
+   download instead of saving in place). The master loads exactly as before.
+2. **Hotel contacts** — one record per hotel: a **key** matched against the
+   file name (longest match wins), display name, To and CC addresses.
+   Add / edit / duplicate / delete; malformed addresses are outlined in red
+   but never block saving. Stored locally (`hss-contacts`) and exportable /
+   importable as JSON for backup and sharing.
+3. **Base emails (.msg)** — author each email once in Outlook with the
+   literal token `[NAME]` where your name goes, save as .msg, and drop it in:
+   one base for *changes* (workbook attached), one for *no changes* (no
+   attachment). The tool clones the base per hotel changing **only** To, CC,
+   the attachment and the token — every authored byte (tables, bold, inline
+   images) passes through untouched, and the clone opens in Outlook as an
+   unsent draft. Both bases are remembered between sessions.
+4. **One review pass** — *Compare all against master* runs the exact same
+   engine per hotel and shows every hotel in one scrollable list, each
+   flagged **n changes** / **no changes** / **error**, with the matched
+   contact beside it. Approvals stay per item; per-hotel and global
+   approve-all are confirmation-gated. Nothing is ever auto-applied.
+5. **Save & send** — *Apply & save* writes each approved hotel's workbook
+   back to its source file in place (new tab added, existing tabs kept
+   byte-for-byte). *Generate all emails* then writes one ready-to-send .msg
+   per hotel into a `Ready to send - <page name>` subfolder — changes hotels
+   get the changes base with the **same workbook bytes** attached that were
+   just saved; unchanged hotels get the no-changes base. Your remaining job:
+   open each draft, glance, hit Send.
+
+Everything still runs locally in the single file under the same
+no-network CSP — the folder and file access is the browser's own
+permission-gated API, granted once per night.
+
 ## How rows are matched
 
 Bookings are matched the way a scheduler thinks ("who is operating 941 on the

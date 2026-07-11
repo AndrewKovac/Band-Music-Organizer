@@ -7,7 +7,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c92c3a'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='900' font-style='italic' font-size='14' fill='white' text-anchor='middle'%3ECJ%3C/text%3E%3C/svg%3E">
 <title>Hotel Sheet Sync · Cargojet Crew Travel</title>
-<!-- Hotel Sheet Sync v2.2 -->
+<!-- Hotel Sheet Sync v3.0 -->
 <style>
   /* ---- Cargojet palette ----
      main #060000 · accent #c92c3a · header #5e6368 · text #858585  */
@@ -327,6 +327,43 @@
   footer{color:#584f4f;font-size:11.5px;margin-top:34px;border-top:1px solid var(--line);
          padding-top:14px;line-height:1.7;}
   .hidden{display:none !important;}
+  /* ============ batch night mode ============ */
+  .mhide{display:none !important;}
+  #btn-batch.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
+  .btable{width:100%;border-collapse:collapse;font-size:13px;}
+  .btable th{color:var(--head);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);
+             font-size:11px;text-transform:uppercase;letter-spacing:.06em;}
+  .btable td{padding:6px 8px;border-bottom:1px solid var(--line-soft);vertical-align:middle;}
+  .btable tr:hover td{background:var(--panel-2);}
+  .btable input[type=checkbox]{accent-color:var(--accent);}
+  .badmail{outline:1.5px solid var(--danger);outline-offset:-1.5px;border-radius:4px;}
+  .bkey{color:var(--bright);font-weight:600;}
+  .bdim{color:var(--muted);}
+  .bhotel{border:1px solid var(--line);border-radius:var(--r-sm);margin:10px 0;background:var(--inset);}
+  .bhotel>summary{cursor:pointer;padding:10px 14px;display:flex;gap:10px;align-items:center;
+                  flex-wrap:wrap;list-style:none;border-radius:var(--r-sm);}
+  .bhotel>summary::-webkit-details-marker{display:none;}
+  .bhotel>summary:focus-visible{box-shadow:0 0 0 3px rgba(201,44,58,.4);outline:none;}
+  .bhotel[open]>summary{border-bottom:1px solid var(--line);}
+  .bhotel .bbody{padding:8px 14px 12px;}
+  .bflag{font-size:11px;font-weight:700;letter-spacing:.05em;padding:3px 9px;border-radius:999px;}
+  .bflag.chg{background:rgba(201,44,58,.18);color:var(--accent-hi);border:1px solid var(--accent-dim);}
+  .bflag.same{background:rgba(125,201,143,.12);color:var(--ok);border:1px solid rgba(125,201,143,.4);}
+  .bflag.err{background:rgba(224,82,82,.15);color:var(--danger);border:1px solid var(--danger);}
+  .bflag.warn2{background:rgba(255,200,90,.12);color:#e8bd6d;border:1px solid rgba(232,189,109,.45);}
+  .crumbs{color:var(--muted);font-size:12px;}
+  .crumbs b{color:var(--text);font-weight:600;}
+  .dirchip{display:inline-block;margin:3px 6px 3px 0;padding:4px 10px;border:1px solid var(--line);
+           border-radius:999px;background:var(--panel-2);color:var(--text);cursor:pointer;font-size:12px;}
+  .dirchip:hover{border-color:var(--accent);color:var(--bright);}
+  .bnote{color:var(--muted);font-size:12.5px;margin:6px 0;}
+  .bmsgprev{background:var(--inset);border:1px solid var(--line);border-radius:var(--r-sm);
+            padding:10px 12px;font-size:12.5px;color:var(--text);margin-top:8px;}
+  .bmsgprev .subj{color:var(--bright);font-weight:600;}
+  .boutlog li{margin:4px 0;color:var(--text);font-size:13px;}
+  .boutlog .ok2{color:var(--ok);} .boutlog .bad{color:var(--danger);}
+  .bwarnbox{border:1px solid rgba(232,189,109,.45);background:rgba(255,200,90,.07);color:#e8bd6d;
+            border-radius:var(--r-sm);padding:9px 12px;font-size:12.5px;margin:8px 0;}
 </style>
 </head>
 <body>
@@ -348,6 +385,7 @@
       <button class="stp" data-goto="step4"><i>4</i>Export</button>
     </nav>
     <div class="spacer"></div>
+    <button class="small ghost" id="btn-batch" title="One folder, every hotel: batch-compare, save back, generate all the emails">Batch night mode</button>
     <button class="small ghost" id="btn-reset" title="Clear both files and all approvals">Start over</button>
   </div>
 
@@ -383,7 +421,7 @@
       <label class="cnt"><input type="text" id="win-to" size="8" placeholder="10JUL" aria-label="Range end"></label>
       <span class="cnt" id="win-note" aria-live="polite"></span>
     </div>
-    <div class="row" style="margin-top:14px;">
+    <div class="row" id="idrow" style="margin-top:14px;">
       <label class="cnt">Your initials&nbsp;
         <select id="initials" style="font:inherit; font-size:13px; padding:4px 8px; border:1px solid var(--line); border-radius:6px; background:var(--inset); color:var(--text);">
           <option value="">--</option>
@@ -456,6 +494,113 @@
       <span id="copymsg" class="cnt" aria-live="polite"></span>
     </div>
     <div id="previewbox"></div>
+  </div>
+
+  <!-- ================= BATCH NIGHT MODE ================= -->
+  <div id="batchwrap" class="hidden">
+
+    <div class="card" id="bstep1">
+      <h2><span class="stepnum">1</span> Master sheet &amp; tonight's folder</h2>
+      <div class="drops">
+        <div id="bmasterslot"></div>
+        <div class="drop" id="b-dirzone" tabindex="0" role="button" aria-label="Select tonight's hotel sheets folder">
+          <div class="icon"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke="#5e6368" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <div class="big">Hotel sheets folder</div>
+          <div class="hint">Click to grant access once — this year &amp; month's subfolder is found automatically.</div>
+        </div>
+      </div>
+      <div id="b-fallback" class="hidden">
+        <div class="bwarnbox">Folder access isn't available in this browser, so the files are picked directly.
+          Updated workbooks and emails will <b>download</b> instead of saving in place.</div>
+        <div class="drop" id="b-filezone" tabindex="0" role="button" aria-label="Load tonight's hotel sheets">
+          <div class="big">Hotel sheets</div>
+          <div class="hint">Drag all of tonight's files here, or click to browse (multiple).</div>
+        </div>
+      </div>
+      <input type="file" id="b-files" multiple accept=".xlsx,.xlsm" class="hidden" aria-hidden="true">
+      <div id="bidslot"></div>
+      <div class="row">
+        <span class="cnt">Auto-select files starting with&nbsp;</span><input id="b-prefix" size="18" aria-label="Hotel file name prefix">
+        <span class="crumbs" id="b-crumb"></span>
+      </div>
+      <div id="b-subdirs"></div>
+      <div id="b-filelist"></div>
+      <div class="row">
+        <button class="primary" id="b-compare" disabled>Compare all against master</button>
+        <span id="b-comparemsg" class="cnt" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="card" id="bstep2">
+      <h2><span class="stepnum">2</span> Hotel contacts</h2>
+      <div class="bnote">Each record's <b>key</b> is matched against the file name (e.g. key <b>BQK</b> matches
+        "Hotel Requirements BQK JUL.xlsx"). Longest matching key wins.</div>
+      <div id="b-contactlist"></div>
+      <div class="row">
+        <button class="small" id="b-c-add">Add hotel</button>
+        <button class="small ghost" id="b-c-export">Export JSON</button>
+        <button class="small ghost" id="b-c-import">Import JSON</button>
+        <input type="file" id="b-c-importfile" accept=".json,application/json" class="hidden" aria-hidden="true">
+        <span class="cnt" id="b-c-msg" aria-live="polite"></span>
+      </div>
+      <div id="b-c-editor" class="hidden">
+        <div class="row">
+          <label class="cnt">Key&nbsp;<input id="b-c-key" size="10" aria-label="Hotel key"></label>
+          <label class="cnt">Hotel name&nbsp;<input id="b-c-name" size="22" aria-label="Hotel display name"></label>
+        </div>
+        <div class="row">
+          <label class="cnt">To&nbsp;<input id="b-c-to" size="30" aria-label="Primary recipient email"></label>
+          <label class="cnt">CC&nbsp;<input id="b-c-cc" size="44" placeholder="comma-separated" aria-label="CC emails, comma separated"></label>
+        </div>
+        <div class="row">
+          <button class="primary small" id="b-c-save">Save contact</button>
+          <button class="small ghost" id="b-c-cancel">Cancel</button>
+          <span class="cnt" id="b-c-editmsg"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="bstep3">
+      <h2><span class="stepnum">3</span> Base emails (.msg)</h2>
+      <div class="bnote">Author each email once in Outlook — with the literal token <b>[NAME]</b> where your name goes —
+        and save it as a .msg. The tool clones it per hotel, changing only To, CC, the attachment and the token.
+        Both bases are remembered.</div>
+      <div class="drops">
+        <div class="drop" id="b-base-chg" tabindex="0" role="button" aria-label="Load the base email for hotels with changes">
+          <div class="big">Base email — changes</div>
+          <div class="hint">Sent to hotels whose sheet was updated (workbook attached).</div>
+        </div>
+        <div class="drop" id="b-base-noc" tabindex="0" role="button" aria-label="Load the base email for hotels with no changes">
+          <div class="big">Base email — no changes</div>
+          <div class="hint">Sent to hotels with nothing to update (no attachment).</div>
+        </div>
+      </div>
+      <input type="file" id="b-basefile-chg" accept=".msg" class="hidden" aria-hidden="true">
+      <input type="file" id="b-basefile-noc" accept=".msg" class="hidden" aria-hidden="true">
+      <div id="b-baseprev"></div>
+    </div>
+
+    <div class="card hidden" id="bstep4">
+      <h2><span class="stepnum">4</span> Review every hotel</h2>
+      <div class="row" id="b-sumchips"></div>
+      <div class="row">
+        <button class="small" id="b-approve-all">Approve everything…</button>
+        <button class="small ghost" id="b-approve-none">Clear all approvals</button>
+        <span class="cnt" id="b-appcount" aria-live="polite"></span>
+      </div>
+      <div id="b-groups"></div>
+    </div>
+
+    <div class="card hidden" id="bstep5">
+      <h2><span class="stepnum">5</span> Save sheets &amp; generate emails</h2>
+      <div class="row">
+        <button class="primary" id="b-apply">Apply &amp; save updated workbooks</button>
+        <button class="primary" id="b-emails">Generate all emails</button>
+        <span class="cnt" id="b-outmsg" aria-live="polite"></span>
+      </div>
+      <ul class="boutlog" id="b-outlog"></ul>
+    </div>
+
   </div>
 
   <footer style="text-align:center">Property of CargoJet Crew Scheduling Group</footer>
@@ -1361,6 +1506,355 @@ function outputToTsv(out){
   }).join('\r\n');
 }
 
+/* =================== Outlook .msg engine (MS-OXMSG over CFB) ===============
+   The email is authored ONCE in Outlook and saved as .msg - that file is the
+   immutable base. Cloning changes only the envelope: recipients, one added
+   attachment, the literal [NAME] token and the unsent flag. Every byte of
+   authored content (subject, tables, inline images, formatting) passes
+   through untouched. The OLE container is read/written with the CFB library
+   already bundled inside SheetJS - no new dependencies.                    */
+
+function msgU16(s){                       /* JS string -> UTF-16LE bytes */
+  var b=new Uint8Array(s.length*2);
+  for(var i=0;i<s.length;i++){ var c=s.charCodeAt(i); b[i*2]=c&255; b[i*2+1]=c>>8; }
+  return b;
+}
+function msgFromU16(u8){
+  var s='';
+  for(var i=0;i+1<u8.length;i+=2) s+=String.fromCharCode(u8[i]|(u8[i+1]<<8));
+  return s;
+}
+function msgLatin(u8){ var s=''; for(var i=0;i<u8.length;i++) s+=String.fromCharCode(u8[i]); return s; }
+function msgLatinBytes(s){
+  var b=new Uint8Array(s.length);
+  for(var i=0;i<s.length;i++){
+    var c=s.charCodeAt(i);
+    b[i]=c<256?c:63;                      /* callers entity-encode first */
+  }
+  return b;
+}
+function msgRd32(u8,o){ return (u8[o]|(u8[o+1]<<8)|(u8[o+2]<<16)|(u8[o+3]<<24))>>>0; }
+function msgWr32(u8,o,v){ u8[o]=v&255; u8[o+1]=(v>>>8)&255; u8[o+2]=(v>>>16)&255; u8[o+3]=(v>>>24)&255; }
+function msgHex8(n){ var s=n.toString(16).toUpperCase(); while(s.length<8) s='0'+s; return s; }
+
+function cfbGet(cfb,path){
+  var e=XLSX.CFB.find(cfb,path);
+  return (e&&e.content&&e.content.length)?new Uint8Array(e.content):null;
+}
+function cfbPut(cfb,path,bytes){
+  XLSX.CFB.utils.cfb_del(cfb,path);      /* no-op when absent */
+  XLSX.CFB.utils.cfb_add(cfb,path,Array.prototype.slice.call(bytes));
+}
+/* every child path (streams first, then the storage itself) under a prefix */
+function cfbChildren(cfb,prefix){
+  var root='Root Entry/', out=[];
+  (cfb.FullPaths||[]).forEach(function(fp){
+    if(fp.slice(0,root.length)!==root) return;
+    var rel='/'+fp.slice(root.length);
+    if(rel!=='/'&&rel.slice(0,prefix.length)===prefix) out.push(rel);
+  });
+  out.sort(function(a,b){ return b.length-a.length; });   /* deepest first */
+  return out;
+}
+function cfbDelTree(cfb,prefix){
+  cfbChildren(cfb,prefix).forEach(function(p){ XLSX.CFB.utils.cfb_del(cfb,p); });
+}
+
+/* ---------- property rows (16 bytes each: tag, flags, 8-byte value) ------ */
+var MSG_HDR_TOP=32, MSG_HDR_SUB=8;        /* __properties header sizes */
+function propRowFixed(tag,val){
+  var r=new Uint8Array(16);
+  msgWr32(r,0,tag); msgWr32(r,4,6); msgWr32(r,8,val>>>0); msgWr32(r,12,0);
+  return r;
+}
+function propRowVar(tag,size){
+  var r=new Uint8Array(16);
+  msgWr32(r,0,tag); msgWr32(r,4,6); msgWr32(r,8,size>>>0); msgWr32(r,12,0);
+  return r;
+}
+/* declared size for a variable-length property's row */
+function propVarSize(tag,byteLen){
+  var type=tag&0xFFFF;
+  if(type===0x001F) return byteLen+2;     /* unicode: + terminator */
+  if(type===0x001E) return byteLen+1;     /* ansi:    + terminator */
+  return byteLen;                         /* binary */
+}
+function propsParse(u8,hdrLen){
+  var rows=[];
+  for(var o=hdrLen;o+16<=u8.length;o+=16) rows.push(u8.slice(o,o+16));
+  return rows;
+}
+function propsBuild(hdr,rows){
+  var total=hdr.length+rows.length*16, out=new Uint8Array(total), p=hdr.length;
+  out.set(hdr,0);
+  rows.forEach(function(r){ out.set(r,p); p+=16; });
+  return out;
+}
+/* replace the row carrying `tag`, or append the new row */
+function propsUpsert(rows,row){
+  var tag=msgRd32(row,0);
+  for(var i=0;i<rows.length;i++)
+    if(msgRd32(rows[i],0)===tag){ rows[i]=row; return rows; }
+  rows.push(row);
+  return rows;
+}
+function propsDrop(rows,tag){
+  return rows.filter(function(r){ return msgRd32(r,0)!==tag; });
+}
+
+/* ---------- compressed RTF (MS-OXRTFCP) ---------------------------------- */
+var LZFU_DICT='{\\rtf1\\ansi\\mac\\deff0\\deftab720{\\fonttbl;}{\\f0\\fnil \\froman '+
+  '\\fswiss \\fmodern \\fscript \\fdecor MS Sans SerifSymbolArialTimes New Roman'+
+  'Courier{\\colortbl\\red0\\green0\\blue0\r\n\\par \\pard\\plain\\f0\\fs20'+
+  '\\b\\i\\u\\tab\\tx';
+function lzfuDecompress(u8){
+  if(u8.length<16) return null;
+  var rawSize=msgRd32(u8,4), compType=msgRd32(u8,8);
+  var body=u8.subarray(16);
+  if(compType===0x414C454D)               /* 'MELA': stored uncompressed */
+    return msgLatin(body.subarray(0,Math.min(rawSize,body.length)));
+  if(compType!==0x75465A4C) return null;  /* not 'LZFu' either */
+  var dict=new Array(4096), wp=LZFU_DICT.length, out=[];
+  for(var i=0;i<wp;i++) dict[i]=LZFU_DICT.charCodeAt(i);
+  var pos=0;
+  while(pos<body.length){
+    var ctrl=body[pos++];
+    for(var bit=0;bit<8;bit++){
+      if(ctrl&(1<<bit)){
+        if(pos+1>=body.length+1){ pos=body.length; break; }
+        var ref=(body[pos]<<8)|body[pos+1]; pos+=2;
+        var off=ref>>>4, len=(ref&15)+2;
+        if(off===(wp%4096)) return String.fromCharCode.apply(null,out);
+        for(var k=0;k<len;k++){
+          var c=dict[(off+k)%4096];
+          out.push(c); dict[wp%4096]=c; wp++;
+        }
+      }else{
+        if(pos>=body.length) break;
+        var lit=body[pos++];
+        out.push(lit); dict[wp%4096]=lit; wp++;
+      }
+    }
+  }
+  return String.fromCharCode.apply(null,out);
+}
+/* writing back: the spec's uncompressed mode - Outlook reads it natively */
+function lzfuWrapRaw(rtf){
+  var data=msgLatinBytes(rtf);
+  var out=new Uint8Array(16+data.length);
+  msgWr32(out,0,data.length+12);          /* COMPSIZE: everything after it */
+  msgWr32(out,4,data.length);             /* RAWSIZE */
+  msgWr32(out,8,0x414C454D);              /* 'MELA' */
+  msgWr32(out,12,0);                      /* CRC must be 0 when raw */
+  out.set(data,16);
+  return out;
+}
+function rtfEscape(s){ return String(s).replace(/[\\{}]/g,function(c){ return '\\'+c; }); }
+function htmlEntities(s){
+  return String(s).replace(/[&<>]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; })
+                  .replace(/[^\x00-\xff]/g,function(c){ return '&#'+c.charCodeAt(0)+';'; });
+}
+
+/* ---------- read-only look inside a base .msg (for the preview) ---------- */
+function msgParse(bytes,token){
+  var cfb=XLSX.CFB.read(bytes,{type:'buffer'});
+  var subj=cfbGet(cfb,'/__substg1.0_0037001F');
+  var body=cfbGet(cfb,'/__substg1.0_1000001F');
+  var html=cfbGet(cfb,'/__substg1.0_10130102');
+  var rtfC=cfbGet(cfb,'/__substg1.0_10090102');
+  var text=body?msgFromU16(body):'';
+  if(!text&&html) text=msgLatin(html).replace(/<style[\s\S]*?<\/style>/gi,' ')
+                                     .replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ')
+                                     .replace(/\s+/g,' ').trim();
+  var rtf=(!text&&rtfC)?lzfuDecompress(rtfC):null;
+  if(!text&&rtf) text=rtf.replace(/\\[a-z]+-?\d* ?|[{}]/g,'').replace(/\s+/g,' ').trim();
+  var everything=(subj?msgFromU16(subj):'')+' '+(body?msgFromU16(body):'')+' '+
+                 (html?msgLatin(html):'')+' '+((rtfC&&lzfuDecompress(rtfC))||'');
+  var tok=token||'[NAME]';
+  var tokenCount=everything.split(tok).length-1;
+  var attachments=[], recips=0;
+  cfbChildren(cfb,'/__attach_version1.0_#').forEach(function(p){
+    var m=p.match(/#([0-9A-F]{8})\/$/); if(m) attachments.push(m[1]);
+  });
+  cfbChildren(cfb,'/__recip_version1.0_#').forEach(function(p){
+    if(/\/$/.test(p)) recips++;
+  });
+  return {
+    subject:subj?msgFromU16(subj):'',
+    bodyPreview:text.slice(0,600),
+    hasBody:!!body, hasHtml:!!html, hasRtf:!!rtfC,
+    tokenCount:tokenCount, attachCount:attachments.length, recipCount:recips
+  };
+}
+
+/* ---------- the per-hotel generation contract ---------------------------- */
+/* msgClone(baseBytes, {to:[], cc:[], attachment:{name,bytes}|null,
+                        token:'[NAME]', name:'operator'})  -> Uint8Array    */
+function msgClone(baseBytes,opts){
+  var cfb=XLSX.CFB.read(baseBytes,{type:'buffer'});
+  var token=opts.token||'[NAME]', name=String(opts.name||'');
+
+  /* ---- 1. swap the token wherever body content lives ---- */
+  var propsRaw=cfbGet(cfb,'/__properties_version1.0');
+  if(!propsRaw) throw new Error('Not a valid Outlook .msg (no properties stream).');
+  var hdr=propsRaw.slice(0,MSG_HDR_TOP), rows=propsParse(propsRaw,MSG_HDR_TOP);
+
+  function swapU16Stream(path,tag){
+    var raw=cfbGet(cfb,path);
+    if(!raw) return;
+    var txt=msgFromU16(raw);
+    if(txt.indexOf(token)<0) return;
+    var out=msgU16(txt.split(token).join(name));
+    cfbPut(cfb,path,out);
+    rows=propsUpsert(rows,propRowVar(tag,propVarSize(tag,out.length)));
+  }
+  swapU16Stream('/__substg1.0_0037001F',0x0037001F);   /* subject, just in case */
+  swapU16Stream('/__substg1.0_1000001F',0x1000001F);   /* plain body */
+
+  var html=cfbGet(cfb,'/__substg1.0_10130102');
+  if(html){
+    var hs=msgLatin(html);
+    if(hs.indexOf(token)>=0){
+      var out=msgLatinBytes(hs.split(token).join(htmlEntities(name)));
+      cfbPut(cfb,'/__substg1.0_10130102',out);
+      rows=propsUpsert(rows,propRowVar(0x10130102,out.length));
+    }
+  }
+  var rtfC=cfbGet(cfb,'/__substg1.0_10090102');
+  if(rtfC){
+    if(html){
+      /* HTML is authoritative; a stale RTF copy would still show the token */
+      XLSX.CFB.utils.cfb_del(cfb,'/__substg1.0_10090102');
+      rows=propsDrop(rows,0x10090102);
+    }else{
+      var rtf=lzfuDecompress(rtfC);
+      if(rtf&&rtf.indexOf(token)>=0){
+        var wrapped=lzfuWrapRaw(rtf.split(token).join(rtfEscape(name)));
+        cfbPut(cfb,'/__substg1.0_10090102',wrapped);
+        rows=propsUpsert(rows,propRowVar(0x10090102,wrapped.length));
+      }
+    }
+  }
+
+  /* ---- 2. recipients: base ones out, the hotel's in ---- */
+  cfbChildren(cfb,'/__recip_version1.0_#').forEach(function(){});
+  cfbDelTree(cfb,'/__recip_version1.0_#');
+  var to=(opts.to||[]).filter(Boolean), cc=(opts.cc||[]).filter(Boolean);
+  var all=to.map(function(a){return {a:a,t:1};}).concat(cc.map(function(a){return {a:a,t:2};}));
+  all.forEach(function(r,i){
+    var p='/__recip_version1.0_#'+msgHex8(i)+'/';
+    var em=msgU16(r.a), smtp=msgU16('SMTP');
+    cfbPut(cfb,p+'__substg1.0_3001001F',em);
+    cfbPut(cfb,p+'__substg1.0_3002001F',smtp);
+    cfbPut(cfb,p+'__substg1.0_3003001F',em);
+    cfbPut(cfb,p+'__substg1.0_39FE001F',em);
+    var rr=[
+      propRowFixed(0x30000003,i),                       /* PR_ROWID */
+      propRowFixed(0x0C150003,r.t),                     /* PR_RECIPIENT_TYPE */
+      propRowFixed(0x0FFE0003,6),                       /* PR_OBJECT_TYPE: mail user */
+      propRowFixed(0x39000003,0),                       /* PR_DISPLAY_TYPE */
+      propRowVar(0x3001001F,propVarSize(0x3001001F,em.length)),
+      propRowVar(0x3002001F,propVarSize(0x3002001F,smtp.length)),
+      propRowVar(0x3003001F,propVarSize(0x3003001F,em.length)),
+      propRowVar(0x39FE001F,propVarSize(0x39FE001F,em.length))
+    ];
+    cfbPut(cfb,p+'__properties_version1.0',propsBuild(new Uint8Array(MSG_HDR_SUB),rr));
+  });
+
+  /* display strings shown in the To/CC lines */
+  function setDisplay(tag,path,list){
+    var v=msgU16(list.join('; '));
+    cfbPut(cfb,path,v);
+    rows=propsUpsert(rows,propRowVar(tag,propVarSize(tag,v.length)));
+  }
+  setDisplay(0x0E04001F,'/__substg1.0_0E04001F',to);
+  setDisplay(0x0E03001F,'/__substg1.0_0E03001F',cc);
+
+  /* ---- 3. attachment: keep the base's (inline images!), append the sheet ---- */
+  var attIdx=0;
+  cfbChildren(cfb,'/__attach_version1.0_#').forEach(function(p){
+    var m=p.match(/#([0-9A-F]{8})\/$/);
+    if(m) attIdx=Math.max(attIdx,parseInt(m[1],16)+1);
+  });
+  if(opts.attachment){
+    var ap='/__attach_version1.0_#'+msgHex8(attIdx)+'/';
+    var fname=opts.attachment.name, fn16=msgU16(fname);
+    var ext=(fname.match(/\.[^.]+$/)||[''])[0], ext16=msgU16(ext);
+    var data=opts.attachment.bytes;
+    var mime=msgU16('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    cfbPut(cfb,ap+'__substg1.0_37010102',data);
+    cfbPut(cfb,ap+'__substg1.0_3704001F',fn16);         /* short name */
+    cfbPut(cfb,ap+'__substg1.0_3707001F',fn16);         /* long name */
+    cfbPut(cfb,ap+'__substg1.0_3001001F',fn16);         /* display name */
+    cfbPut(cfb,ap+'__substg1.0_3703001F',ext16);        /* extension */
+    cfbPut(cfb,ap+'__substg1.0_370E001F',mime);         /* mime tag */
+    var ar=[
+      propRowFixed(0x37050003,1),                       /* method: by value */
+      propRowFixed(0x370B0003,0xFFFFFFFF),              /* rendering pos: -1 */
+      propRowFixed(0x0E210003,attIdx),                  /* attach number */
+      propRowVar(0x37010102,propVarSize(0x37010102,data.length)),
+      propRowVar(0x3704001F,propVarSize(0x3704001F,fn16.length)),
+      propRowVar(0x3707001F,propVarSize(0x3707001F,fn16.length)),
+      propRowVar(0x3001001F,propVarSize(0x3001001F,fn16.length)),
+      propRowVar(0x3703001F,propVarSize(0x3703001F,ext16.length)),
+      propRowVar(0x370E001F,propVarSize(0x370E001F,mime.length))
+    ];
+    cfbPut(cfb,ap+'__properties_version1.0',propsBuild(new Uint8Array(MSG_HDR_SUB),ar));
+    attIdx++;
+  }
+
+  /* ---- 4. message-level bookkeeping ---- */
+  var flags=0;
+  rows.forEach(function(r){ if(msgRd32(r,0)===0x0E070003) flags=msgRd32(r,8); });
+  rows=propsUpsert(rows,propRowFixed(0x0E070003,(flags|0x8)>>>0));  /* MSGFLAG_UNSENT */
+  if(attIdx>0) rows=propsUpsert(rows,propRowFixed(0x0E1B000B,1));   /* PR_HASATTACH */
+  if(hdr.length<MSG_HDR_TOP){ var h2=new Uint8Array(MSG_HDR_TOP); h2.set(hdr,0); hdr=h2; }
+  msgWr32(hdr,8,all.length);              /* next recipient id */
+  msgWr32(hdr,12,attIdx);                 /* next attachment id */
+  msgWr32(hdr,16,all.length);             /* recipient count */
+  msgWr32(hdr,20,attIdx);                 /* attachment count */
+  cfbPut(cfb,'/__properties_version1.0',propsBuild(hdr,rows));
+
+  XLSX.CFB.utils.cfb_gc(cfb);
+  var out=XLSX.CFB.write(cfb,{type:'buffer'});
+  return new Uint8Array(out.buffer||out,out.byteOffset||0,out.length);
+}
+
+/* ---------- batch plumbing (pure, UI-free) -------------------------------- */
+var HOTEL_FILE_PREFIX='Hotel Requirements';
+function isHotelReqFile(name,prefix){
+  var p=(prefix||HOTEL_FILE_PREFIX).toLowerCase();
+  var n=String(name||'').toLowerCase();
+  return n.slice(0,p.length)===p&&/\.(xlsx|xlsm)$/.test(n)&&n.charAt(0)!=='~';
+}
+/* filename <-> hotelKey: case-insensitive substring, longest key wins */
+function matchContactToFile(filename,contacts){
+  var n=String(filename||'').toLowerCase(), best=null;
+  (contacts||[]).forEach(function(c){
+    var k=String(c.hotelKey||'').trim().toLowerCase();
+    if(k&&n.indexOf(k)>=0&&(!best||k.length>String(best.hotelKey).length)) best=c;
+  });
+  return best;
+}
+/* pick this month's subfolder from a list of directory names.
+   Handles "2026", "07", "7", "JUL", "July", "07 JUL", "2026-07"...        */
+function resolveDateDir(names,part,date){
+  var y=String(date.getFullYear());
+  var mNum=date.getMonth()+1;
+  var mPad=(mNum<10?'0':'')+mNum;
+  var mName=MONTH_NAMES[date.getMonth()];           /* "JUL" */
+  var cands=(names||[]).map(function(n){ return {n:n,u:String(n).toUpperCase()}; });
+  function find(test){ var hit=cands.filter(test); return hit.length===1?hit[0].n:null; }
+  if(part==='year'){
+    return find(function(c){ return c.u===y; })||
+           find(function(c){ return c.u.indexOf(y)>=0; });
+  }
+  return find(function(c){ return c.u===mPad||c.u===String(mNum); })||
+         find(function(c){ return c.u.indexOf(mName)>=0; })||
+         find(function(c){ return c.u.replace(/[^0-9]/g,'')===mPad; });
+}
+function validEmail(s){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s||'').trim()); }
+
 /* ---------- write the new page INTO the uploaded workbook ----------------
    The original zip entries are copied byte-for-byte (compressed data, CRCs
    and all), so every existing tab, style, chart and macro survives exactly
@@ -1543,6 +2037,53 @@ async function appendSheetToXlsx(u8,tab,out){
   return zipBuild(parts);
 }
 
+/* ---------- the whole compare, as one callable (batch mode / tests) ------
+   Exactly the sequence the single-hotel UI runs: auto hotel pick, master
+   date window, gone/outside partition, match, fold split pairings, diff
+   with check-in locking, past filtering. UI-free in, UI-free out.        */
+function comparePipeline(mRowsAll,hRows,opts){
+  opts=opts||{};
+  var todayISO=opts.todayISO, nowHM=opts.nowHM;
+  var hotels=distinctHotels(mRowsAll);
+  var canons=opts.canons, pickName='';
+  if(!canons){
+    var dom=dominantHotelName(hRows), best=-1, bs=0;
+    hotels.forEach(function(h,i){ var s=hotelSimilarity(h.name,dom); if(s>bs){bs=s;best=i;} });
+    canons=best>=0?[hotels[best].canon]:[];
+    pickName=best>=0?hotels[best].name:'';
+  }
+  var masterRows=mRowsAll.filter(function(r){ return canons.indexOf(r.hotel)>=0; });
+  var win=opts.win||masterDateWindow(mRowsAll);
+  var inScope=[], outside=[], gone=[];
+  hRows.forEach(function(h){
+    if(h.cancelledPrior) gone.push(h);
+    else if(inWindow(win,h.ciDate)) inScope.push(h);
+    else outside.push(h);
+  });
+  var res=foldSplitPairings(matchRows(masterRows,inScope,todayISO));
+  var updates=[], unchanged=[];
+  res.matches.forEach(function(mt){
+    var lock=isPastDT(mt.h.ciDate,mt.h.ciTime,todayISO,nowHM);
+    var items=diffPair(mt.m,mt.h,{lockCI:lock}).map(function(it){ it.ck=false; return it; });
+    if(items.length) updates.push({m:mt.m,h:mt.h,why:mt.why,items:items});
+    else unchanged.push(mt);
+  });
+  var past=[];
+  var cancels=res.cancelledHotel.filter(function(h){
+    if(isPastDT(h.ciDate,h.ciTime,todayISO,nowHM)){ past.push(h); return false; }
+    return true;
+  }).map(function(h){ return {h:h,ck:false}; });
+  var news=res.newMaster
+    .filter(function(m){ return !isPastDT(m.ciDate,m.ciTime,todayISO,nowHM); })
+    .map(function(m){ return {m:m,ck:false}; });
+  return {
+    canons:canons, hotelPick:pickName, win:win, masterCount:masterRows.length,
+    updates:updates, unchanged:unchanged, news:news, cancels:cancels,
+    outside:outside, past:past, gone:gone,
+    proposalCount:updates.reduce(function(a,u){ return a+u.items.length; },0)+news.length+cancels.length
+  };
+}
+
 /* Page-tab naming as used in the real workbooks: "JUN 29 CR M" */
 function computeTabName(date,initials,suffix){
   var parts=[MONTH_NAMES[date.getMonth()]+' '+pad2(date.getDate())];
@@ -1699,7 +2240,16 @@ if(typeof module!=='undefined'&&module.exports){
     crc32:crc32,zipBuild:zipBuild,appendSheetToXlsx:appendSheetToXlsx,xmlEsc:xmlEsc,colRef:colRef,zipEntries:zipEntries,
     headerField:headerField,buildColMap:buildColMap,anchorDayToUTC:anchorDayToUTC,
     foldSplitPairings:foldSplitPairings,fmtDayMon:fmtDayMon,C_OLD:C_OLD,
-    candDates:candDates,resolveStays:resolveStays};
+    candDates:candDates,resolveStays:resolveStays,
+    msgU16:msgU16,msgFromU16:msgFromU16,msgLatin:msgLatin,msgLatinBytes:msgLatinBytes,
+    msgRd32:msgRd32,msgWr32:msgWr32,msgHex8:msgHex8,cfbGet:cfbGet,cfbPut:cfbPut,
+    cfbChildren:cfbChildren,propsParse:propsParse,propsBuild:propsBuild,
+    propRowFixed:propRowFixed,propRowVar:propRowVar,propVarSize:propVarSize,
+    lzfuDecompress:lzfuDecompress,lzfuWrapRaw:lzfuWrapRaw,rtfEscape:rtfEscape,htmlEntities:htmlEntities,
+    msgParse:msgParse,msgClone:msgClone,MSG_HDR_TOP:MSG_HDR_TOP,
+    HOTEL_FILE_PREFIX:HOTEL_FILE_PREFIX,isHotelReqFile:isHotelReqFile,
+    matchContactToFile:matchContactToFile,resolveDateDir:resolveDateDir,validEmail:validEmail,
+    comparePipeline:comparePipeline};
 }
 </script>
 
@@ -1866,6 +2416,7 @@ if(typeof module!=='undefined'&&module.exports){
       var st=S[side];
       st.rows=parseRows(st.grid,side);
       renderFileZone(side);
+      if(B&&B.active) refreshBatchReady();
       warnIfSwapped();
       if(S.master&&S.hotel){
         setupHotelPicker();
@@ -2720,6 +3271,588 @@ if(typeof module!=='undefined'&&module.exports){
     }).catch(function(err){
       if(err && (err.name==='AbortError'||err.name==='NotAllowedError')) return; /* user cancelled */
       fatal('Saving the workbook failed:\n'+(err&&err.stack||err));
+    });
+  });
+
+  /* ==================== BATCH NIGHT MODE ==================== */
+  /* One folder grant -> every "Hotel Requirements*" file -> one review pass
+     -> sheets saved back in place -> one ready-to-send .msg per hotel.
+     Everything below CALLS the existing engine; it never modifies it.     */
+  var B={ active:false, dir:null, workDir:null, path:[], listing:null,
+          files:[], items:null, editIdx:-1, fsa:!!window.showDirectoryPicker };
+  var CONTACTS=[];
+  try{ CONTACTS=JSON.parse(localStorage.getItem('hss-contacts')||'[]')||[]; }catch(e){}
+  var BASES={chg:null,noc:null};
+  ['chg','noc'].forEach(function(k){
+    try{ BASES[k]=JSON.parse(localStorage.getItem('hss-base-'+k)||'null'); }catch(e){}
+  });
+  function b64ToBytes(b64){
+    var bin=atob(b64), u=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+    return u;
+  }
+  function bytesToB64(u8){
+    var s='';
+    for(var i=0;i<u8.length;i+=0x8000) s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));
+    return btoa(s);
+  }
+  function downloadBytes(bytes,name,mime){
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([bytes],{type:mime||'application/octet-stream'}));
+    a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+  }
+
+  /* ---------- mode toggle ---------- */
+  $('btn-batch').addEventListener('click',function(){ setBatchMode(!B.active); });
+  function setBatchMode(on){
+    B.active=on;
+    $('btn-batch').classList.toggle('on',on);
+    $('batchwrap').classList.toggle('hidden',!on);
+    ['step1','step2','step3','step4'].forEach(function(id){ $(id).classList.toggle('mhide',on); });
+    $('actionbar').classList.toggle('mhide',on);
+    document.querySelector('.stepper').classList.toggle('mhide',on);
+    if(on){
+      /* the classic master drop zone IS the batch master drop zone - the
+         element moves, so state, parsing and previews stay identical      */
+      $('bmasterslot').appendChild($('drop-master'));
+      $('bmasterslot').appendChild($('file-master'));
+      $('bidslot').appendChild($('idrow'));          /* initials & shift = sender identity */
+      if(!B.fsa){ $('b-fallback').classList.remove('hidden'); $('b-dirzone').classList.add('mhide'); }
+      renderContacts(); renderBasePrev(); renderFileList(); refreshBatchReady();
+    }else{
+      var drops=document.querySelector('#step1 .drops');
+      drops.insertBefore($('drop-master'),drops.firstChild);
+      $('step1').appendChild($('file-master'));
+      $('win-note').parentNode.parentNode.appendChild($('idrow'));
+    }
+  }
+
+  /* ---------- folder pick & file list ---------- */
+  $('b-prefix').value=(function(){ try{ return localStorage.getItem('hss-batch-prefix')||HOTEL_FILE_PREFIX; }catch(e){ return HOTEL_FILE_PREFIX; } })();
+  $('b-prefix').addEventListener('input',function(){
+    try{ localStorage.setItem('hss-batch-prefix',$('b-prefix').value); }catch(e){}
+    B.files.forEach(function(f){ f.checked=isHotelReqFile(f.name,$('b-prefix').value); });
+    renderFileList();
+  });
+  function bindZone(id,fn){
+    $(id).addEventListener('click',fn);
+    $(id).addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fn(); } });
+  }
+  bindZone('b-dirzone',function(){
+    if(!B.fsa) return;
+    window.showDirectoryPicker({mode:'readwrite'}).then(function(dh){
+      B.dir=dh;
+      return autoResolveDir(dh);
+    }).catch(function(err){
+      if(err&&(err.name==='AbortError'||err.name==='NotAllowedError')) return;
+      fatal('Folder access failed:\n'+(err&&err.stack||err));
+    });
+  });
+  function listDir(dh){
+    var dirs=[],files=[];
+    var it=dh.entries();
+    function step(){
+      return it.next().then(function(r){
+        if(r.done) return {dirs:dirs,files:files};
+        var name=r.value[0],h=r.value[1];
+        (h.kind==='directory'?dirs:files).push({name:name,handle:h});
+        return step();
+      });
+    }
+    return step();
+  }
+  function autoResolveDir(dh){
+    var now=new Date();
+    B.path=[dh.name]; B.workDir=dh;
+    return listDir(dh).then(function(l){
+      var yn=resolveDateDir(l.dirs.map(function(d){return d.name;}),'year',now);
+      if(!yn){ B.listing=l; return null; }
+      var yd=l.dirs.filter(function(d){return d.name===yn;})[0];
+      B.path.push(yn); B.workDir=yd.handle;
+      return listDir(yd.handle).then(function(l2){
+        var mn=resolveDateDir(l2.dirs.map(function(d){return d.name;}),'month',now);
+        if(!mn){ B.listing=l2; return null; }
+        var md=l2.dirs.filter(function(d){return d.name===mn;})[0];
+        B.path.push(mn); B.workDir=md.handle;
+        return listDir(md.handle).then(function(l3){ B.listing=l3; return null; });
+      });
+    }).then(function(){ adoptListing(); });
+  }
+  function drillInto(name){
+    var d=(B.listing&&B.listing.dirs||[]).filter(function(x){return x.name===name;})[0];
+    if(!d) return;
+    B.path.push(name); B.workDir=d.handle;
+    listDir(d.handle).then(function(l){ B.listing=l; adoptListing(); });
+  }
+  function adoptListing(){
+    var prefix=$('b-prefix').value||HOTEL_FILE_PREFIX;
+    B.files=(B.listing.files||[])
+      .filter(function(f){ return /\.(xlsx|xlsm)$/i.test(f.name)&&f.name.charAt(0)!=='~'; })
+      .map(function(f){ return {name:f.name,handle:f.handle,file:null,checked:isHotelReqFile(f.name,prefix)}; })
+      .sort(function(a,b){ return a.name.localeCompare(b.name); });
+    renderFileList();
+    var zone=$('b-dirzone');
+    zone.classList.add('loaded');
+    zone.innerHTML='<div class="filemeta"><div class="big">'+escHtml(B.path.join(' / '))+'</div>'+
+      '<div class="hint">'+B.files.length+' spreadsheet(s) here — pick a different folder any time.</div></div>';
+  }
+  /* fallback: plain multi-file input (also what the automated tests drive) */
+  bindZone('b-filezone',function(){ $('b-files').click(); });
+  ['dragenter','dragover'].forEach(function(ev){
+    $('b-filezone').addEventListener(ev,function(e){ e.preventDefault(); $('b-filezone').classList.add('over'); });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    $('b-filezone').addEventListener(ev,function(e){ e.preventDefault(); $('b-filezone').classList.remove('over'); });
+  });
+  $('b-filezone').addEventListener('drop',function(e){ adoptFileList(e.dataTransfer.files); });
+  $('b-files').addEventListener('change',function(){ adoptFileList($('b-files').files); $('b-files').value=''; });
+  function adoptFileList(fileList){
+    var prefix=$('b-prefix').value||HOTEL_FILE_PREFIX;
+    B.files=Array.prototype.slice.call(fileList||[])
+      .filter(function(f){ return /\.(xlsx|xlsm)$/i.test(f.name); })
+      .map(function(f){ return {name:f.name,handle:null,file:f,checked:isHotelReqFile(f.name,prefix)}; })
+      .sort(function(a,b){ return a.name.localeCompare(b.name); });
+    renderFileList();
+  }
+  function renderFileList(){
+    $('b-crumb').textContent=B.path.length?('In: '+B.path.join(' / ')):'';
+    var sd=$('b-subdirs');
+    if(B.listing&&B.listing.dirs&&B.listing.dirs.length){
+      sd.innerHTML='<div class="bnote">Subfolders (click to open):</div>'+
+        B.listing.dirs.map(function(d){
+          return '<button class="dirchip" data-dir="'+escHtml(d.name)+'">'+escHtml(d.name)+'/</button>';
+        }).join('');
+    }else sd.innerHTML='';
+    var host=$('b-filelist');
+    if(!B.files.length){ host.innerHTML=''; refreshBatchReady(); return; }
+    var rows=B.files.map(function(f,i){
+      var c=matchContactToFile(f.name,CONTACTS);
+      return '<tr><td><input type="checkbox" data-bfile="'+i+'"'+(f.checked?' checked':'')+
+        ' aria-label="Include '+escHtml(f.name)+'"></td>'+
+        '<td class="bkey">'+escHtml(f.name)+'</td>'+
+        '<td>'+(c?'<span class="bflag same">'+escHtml(c.hotelKey)+'</span>'
+               :'<span class="bflag warn2">no contact</span>')+'</td></tr>';
+    }).join('');
+    var sel=B.files.filter(function(f){return f.checked;}).length;
+    host.innerHTML='<table class="btable"><tr><th></th><th>File</th><th>Contact</th></tr>'+rows+'</table>'+
+      '<div class="bnote">'+sel+' of '+B.files.length+' selected.</div>';
+    refreshBatchReady();
+  }
+  $('b-subdirs').addEventListener('click',function(e){
+    var d=e.target.dataset&&e.target.dataset.dir;
+    if(d) drillInto(d);
+  });
+  $('b-filelist').addEventListener('change',function(e){
+    var i=e.target.dataset&&e.target.dataset.bfile;
+    if(i!=null){ B.files[+i].checked=e.target.checked; renderFileList(); }
+  });
+  function refreshBatchReady(){
+    var sel=B.files.filter(function(f){return f.checked;}).length;
+    var ready=!!(S.master&&S.master.rows&&S.master.rows.length)&&sel>0;
+    $('b-compare').disabled=!ready;
+    $('b-comparemsg').textContent=ready?(sel+' hotel file(s) ready.')
+      :(!S.master?'Load the master sheet.':(sel?'':'No hotel files selected.'));
+  }
+
+  /* ---------- contacts manager ---------- */
+  function saveContacts(){
+    try{ localStorage.setItem('hss-contacts',JSON.stringify(CONTACTS)); }catch(e){}
+    renderContacts(); renderFileList();
+  }
+  function renderContacts(){
+    var host=$('b-contactlist');
+    if(!CONTACTS.length){
+      host.innerHTML='<div class="bnote">No hotels yet — add one, or import the team\'s JSON.</div>';
+      return;
+    }
+    var rows=CONTACTS.map(function(c,i){
+      var toBad=c.to&&!validEmail(c.to);
+      var ccBad=(c.cc||[]).some(function(a){ return !validEmail(a); });
+      return '<tr>'+
+        '<td class="bkey">'+escHtml(c.hotelKey||'')+'</td>'+
+        '<td class="bdim">'+escHtml(c.hotelName||'')+'</td>'+
+        '<td'+(toBad?' class="badmail" title="Doesn\'t look like an email address"':'')+'>'+escHtml(c.to||'')+'</td>'+
+        '<td'+(ccBad?' class="badmail" title="A CC address doesn\'t look right"':'')+'>'+
+          ((c.cc||[]).length?(c.cc.length+' CC'):'<span class="bdim">—</span>')+'</td>'+
+        '<td><button class="small ghost" data-cedit="'+i+'">Edit</button> '+
+            '<button class="small ghost" data-cdup="'+i+'">Duplicate</button> '+
+            '<button class="small ghost" data-cdel="'+i+'">Delete</button></td></tr>';
+    }).join('');
+    host.innerHTML='<table class="btable"><tr><th>Key</th><th>Hotel</th><th>To</th><th>CC</th><th></th></tr>'+rows+'</table>'+
+      '<div class="bnote">'+CONTACTS.length+' hotel(s). Malformed addresses are outlined in red but never block saving.</div>';
+  }
+  function openEditor(i){
+    B.editIdx=i;
+    var c=i>=0?CONTACTS[i]:{hotelKey:'',hotelName:'',to:'',cc:[]};
+    $('b-c-key').value=c.hotelKey||'';
+    $('b-c-name').value=c.hotelName||'';
+    $('b-c-to').value=c.to||'';
+    $('b-c-cc').value=(c.cc||[]).join(', ');
+    $('b-c-editmsg').textContent='';
+    $('b-c-editor').classList.remove('hidden');
+    $('b-c-key').focus();
+  }
+  $('b-c-add').addEventListener('click',function(){ openEditor(-1); });
+  $('b-c-cancel').addEventListener('click',function(){ $('b-c-editor').classList.add('hidden'); });
+  $('b-c-save').addEventListener('click',function(){
+    var key=$('b-c-key').value.trim();
+    if(!key){ $('b-c-editmsg').textContent='A key is required — it matches the file name.'; return; }
+    var rec={ hotelKey:key, hotelName:$('b-c-name').value.trim(), to:$('b-c-to').value.trim(),
+              cc:$('b-c-cc').value.split(',').map(function(s){return s.trim();}).filter(Boolean) };
+    if(B.editIdx>=0) CONTACTS[B.editIdx]=rec; else CONTACTS.push(rec);
+    $('b-c-editor').classList.add('hidden');
+    saveContacts();
+    var bad=[rec.to].concat(rec.cc).filter(function(a){ return a&&!validEmail(a); });
+    $('b-c-msg').textContent=bad.length?('Saved — but check: '+bad.join(', ')):'Saved.';
+  });
+  $('b-contactlist').addEventListener('click',function(e){
+    var d=e.target.dataset||{};
+    if(d.cedit!=null) openEditor(+d.cedit);
+    else if(d.cdup!=null){
+      var c=CONTACTS[+d.cdup];
+      CONTACTS.splice(+d.cdup+1,0,{hotelKey:c.hotelKey+' COPY',hotelName:c.hotelName,to:c.to,cc:(c.cc||[]).slice()});
+      saveContacts();
+    }
+    else if(d.cdel!=null){
+      var cd=CONTACTS[+d.cdel];
+      if(confirm('Delete the contact for "'+(cd.hotelKey||'?')+'"?')){ CONTACTS.splice(+d.cdel,1); saveContacts(); }
+    }
+  });
+  $('b-c-export').addEventListener('click',function(){
+    downloadBytes(new TextEncoder().encode(JSON.stringify(CONTACTS,null,2)),'hotel-contacts.json','application/json');
+  });
+  $('b-c-import').addEventListener('click',function(){ $('b-c-importfile').click(); });
+  $('b-c-importfile').addEventListener('change',function(){
+    var f=$('b-c-importfile').files[0]; $('b-c-importfile').value='';
+    if(!f) return;
+    f.text().then(function(t){
+      var list=JSON.parse(t);
+      if(!Array.isArray(list)) throw new Error('Expected a JSON array of contacts.');
+      var clean=list.map(function(c){
+        return { hotelKey:String(c.hotelKey||'').trim(), hotelName:String(c.hotelName||''),
+                 to:String(c.to||'').trim(),
+                 cc:Array.isArray(c.cc)?c.cc.map(String):String(c.cc||'').split(',').map(function(s){return s.trim();}).filter(Boolean) };
+      }).filter(function(c){ return c.hotelKey; });
+      if(!confirm('Replace all '+CONTACTS.length+' stored contact(s) with the '+clean.length+' from "'+f.name+'"?')) return;
+      CONTACTS=clean; saveContacts();
+      $('b-c-msg').textContent='Imported '+clean.length+' contact(s).';
+    }).catch(function(err){ $('b-c-msg').textContent='Import failed: '+(err&&err.message||err); });
+  });
+
+  /* ---------- base .msg emails ---------- */
+  function bindBaseDrop(zoneId,inputId,slot){
+    bindZone(zoneId,function(){ $(inputId).click(); });
+    ['dragenter','dragover'].forEach(function(ev){
+      $(zoneId).addEventListener(ev,function(e){ e.preventDefault(); $(zoneId).classList.add('over'); });
+    });
+    ['dragleave','drop'].forEach(function(ev){
+      $(zoneId).addEventListener(ev,function(e){ e.preventDefault(); $(zoneId).classList.remove('over'); });
+    });
+    $(zoneId).addEventListener('drop',function(e){
+      if(e.dataTransfer.files&&e.dataTransfer.files[0]) loadBase(e.dataTransfer.files[0],slot);
+    });
+    $(inputId).addEventListener('change',function(){
+      if($(inputId).files[0]) loadBase($(inputId).files[0],slot);
+      $(inputId).value='';
+    });
+  }
+  bindBaseDrop('b-base-chg','b-basefile-chg','chg');
+  bindBaseDrop('b-base-noc','b-basefile-noc','noc');
+  function loadBase(file,slot){
+    file.arrayBuffer().then(function(buf){
+      var bytes=new Uint8Array(buf);
+      var info=msgParse(bytes);            /* throws on non-.msg */
+      BASES[slot]={name:file.name,b64:bytesToB64(bytes),info:info};
+      try{ localStorage.setItem('hss-base-'+slot,JSON.stringify(BASES[slot])); }
+      catch(e){ toast('Too big to remember between sessions — loaded for tonight only'); }
+      renderBasePrev();
+    }).catch(function(err){
+      fatal('Could not read '+file.name+' as an Outlook .msg:\n'+(err&&err.stack||err));
+    });
+  }
+  function renderBasePrev(){
+    var out=[];
+    [['chg','Changes email'],['noc','No-changes email']].forEach(function(pair){
+      var slot=pair[0], b=BASES[slot];
+      var zone=$('b-base-'+slot);
+      if(!b){ out.push('<div class="bmsgprev bdim">'+pair[1]+': not loaded yet.</div>'); return; }
+      zone.classList.add('loaded');
+      var info=b.info||{};
+      var warn='';
+      if(info.tokenCount===0) warn='<div class="bflag err">[NAME] token not found — the signature will not be personalised</div>';
+      else if(info.tokenCount>1) warn='<div class="bflag warn2">[NAME] appears '+info.tokenCount+' times — every one is replaced</div>';
+      out.push('<div class="bmsgprev"><span class="subj">'+pair[1]+': '+escHtml(info.subject||'(no subject)')+'</span>'+
+        '<div class="bdim">'+escHtml(b.name)+' · '+(info.hasHtml?'HTML body':(info.hasRtf?'RTF body':'plain body'))+
+        (info.attachCount?' · '+info.attachCount+' embedded attachment(s) kept':'')+'</div>'+
+        '<div>'+escHtml((info.bodyPreview||'').slice(0,220))+'…</div>'+warn+'</div>');
+    });
+    $('b-baseprev').innerHTML=out.join('');
+  }
+
+  /* ---------- compare all ---------- */
+  $('b-compare').addEventListener('click',function(){
+    var sel=B.files.filter(function(f){return f.checked;});
+    if(!sel.length||!S.master||!S.master.rows) return;
+    $('b-compare').disabled=true;
+    $('b-comparemsg').textContent='Comparing '+sel.length+' hotel(s)…';
+    var now=new Date();
+    var todayISO=isoParts(now.getFullYear(),now.getMonth()+1,now.getDate());
+    var nowHM=pad2(now.getHours())+':'+pad2(now.getMinutes());
+    B.items=[];
+    var chain=Promise.resolve();
+    sel.forEach(function(f){
+      chain=chain.then(function(){
+        var it={name:f.name,handle:f.handle,contact:matchContactToFile(f.name,CONTACTS),
+                error:null,outBytes:null,saved:null,mail:null};
+        B.items.push(it);
+        var getFile=f.handle?f.handle.getFile():Promise.resolve(f.file);
+        return getFile.then(function(file){ return file.arrayBuffer(); }).then(function(buf){
+          it.u8=new Uint8Array(buf);
+          var wb=XLSX.read(buf,{type:'array'});
+          it.sheetName=wb.SheetNames[wb.SheetNames.length-1];
+          var grid=sheetToGrid(wb.Sheets[it.sheetName]);
+          it.grid=grid;
+          return readStyleGrid(it.u8,it.sheetName,wb.Styles).then(
+            function(sty){ grid._styles=sty; },function(){ }
+          ).then(function(){
+            it.rows=parseRows(grid,'hotel');
+            it.res=comparePipeline(S.master.rows,it.rows,{todayISO:todayISO,nowHM:nowHM});
+          });
+        }).catch(function(err){ it.error=String(err&&err.message||err); });
+      });
+    });
+    chain.then(function(){
+      $('b-compare').disabled=false;
+      $('b-comparemsg').textContent='';
+      showCard('bstep4'); showCard('bstep5');
+      renderBatchReview();
+      $('bstep4').scrollIntoView({behavior:'smooth',block:'start'});
+    });
+  });
+
+  function bApproved(it){
+    if(!it.res) return 0;
+    var n=0;
+    it.res.updates.forEach(function(u){ u.items.forEach(function(x){ if(x.ck)n++; }); });
+    it.res.news.forEach(function(x){ if(x.ck)n++; });
+    it.res.cancels.forEach(function(x){ if(x.ck)n++; });
+    return n;
+  }
+  function bProposals(it){ return it.res?it.res.proposalCount:0; }
+
+  function renderBatchReview(){
+    var chg=0,same=0,errs=0,nocontact=0,appr=0,tot=0;
+    B.items.forEach(function(it){
+      if(it.error){ errs++; return; }
+      if(bProposals(it)>0) chg++; else same++;
+      if(!it.contact) nocontact++;
+      appr+=bApproved(it); tot+=bProposals(it);
+    });
+    $('b-sumchips').innerHTML=
+      '<span class="chip"><span class="dot" style="background:var(--accent-hi)"></span>'+chg+' with changes</span>'+
+      '<span class="chip"><span class="dot" style="background:var(--ok)"></span>'+same+' no changes</span>'+
+      (errs?'<span class="chip"><span class="dot" style="background:var(--danger)"></span>'+errs+' failed to read</span>':'')+
+      (nocontact?'<span class="chip"><span class="dot" style="background:#e8bd6d"></span>'+nocontact+' missing a contact</span>':'');
+    $('b-appcount').textContent=appr+' of '+tot+' proposed changes approved';
+    var html=B.items.map(function(it,i){
+      var head,body='';
+      if(it.error){
+        head='<span class="bflag err">error</span><span class="bkey">'+escHtml(it.name)+'</span>'+
+             '<span class="bdim">'+escHtml(it.error)+'</span>';
+        return '<details class="bhotel"><summary>'+head+'</summary></details>';
+      }
+      var R=it.res, np=bProposals(it), na=bApproved(it);
+      var flag=np?'<span class="bflag chg">'+np+' change'+(np>1?'s':'')+'</span>'
+                 :'<span class="bflag same">no changes</span>';
+      var cchip=it.contact?'<span class="bdim">→ '+escHtml(it.contact.to||'(no To)')+
+                (it.contact.cc&&it.contact.cc.length?' +'+it.contact.cc.length+' CC':'')+'</span>'
+               :'<span class="bflag warn2">no contact match</span>';
+      head=flag+'<span class="bkey">'+escHtml(it.name)+'</span>'+
+           '<span class="bdim">'+escHtml(R.hotelPick||'')+'</span>'+cchip+
+           (np?'<span class="bdim" style="margin-left:auto">'+na+'/'+np+' approved</span>':'');
+      if(np){
+        var rows=[];
+        R.updates.forEach(function(u,ui){
+          u.items.forEach(function(x,ii){
+            var tag=x.cat==='removal'?'<span class="tag" style="background:'+C_CANCEL+';color:#fff">REMOVED</span>'
+                  :x.noFill?'<span class="tag" style="background:#c9c9c9">NO HIGHLIGHT</span>'
+                  :x.cat==='name'?'<span class="tag" style="background:'+C_NAME+'">NAME</span>'
+                  :'<span class="tag" style="background:'+C_SCHED+'">SCHED</span>';
+            rows.push('<tr><td><input type="checkbox" data-bu="'+i+':'+ui+':'+ii+'"'+(x.ck?' checked':'')+'></td>'+
+              '<td>'+escHtml(crewLine(u.h))+'</td><td>'+escHtml(x.label)+' '+tag+'</td>'+
+              '<td class="bdim">'+escHtml(x.oldText||'(blank)')+' → '+escHtml(x.newText||'(removed)')+'</td></tr>');
+          });
+        });
+        R.news.forEach(function(nrec,ni){
+          rows.push('<tr><td><input type="checkbox" data-bn="'+i+':'+ni+'"'+(nrec.ck?' checked':'')+'></td>'+
+            '<td>'+escHtml(crewLine(nrec.m))+'</td><td><span class="tag" style="background:'+C_NEW+'">NEW BOOKING</span></td>'+
+            '<td class="bdim">check-in '+escHtml(nrec.m.disp[3]||'')+'</td></tr>');
+        });
+        R.cancels.forEach(function(crec,ci){
+          rows.push('<tr><td><input type="checkbox" data-bc="'+i+':'+ci+'"'+(crec.ck?' checked':'')+'></td>'+
+            '<td>'+escHtml(crewLine(crec.h))+'</td><td><span class="tag" style="background:'+C_CANCEL+';color:#fff">CANCEL?</span></td>'+
+            '<td class="bdim">not on the master — leave unticked if loadmaster/maintenance</td></tr>');
+        });
+        body='<div class="bbody"><table class="btable"><tr><th></th><th>Crew</th><th>Change</th><th>Detail</th></tr>'+
+          rows.join('')+'</table>'+
+          '<div class="row"><button class="small" data-ball="'+i+'">Approve all for this hotel</button>'+
+          '<button class="small ghost" data-bnone="'+i+'">Clear</button></div></div>';
+      }else{
+        body='<div class="bbody bnote">Matches the master exactly'+
+          (R.unchanged.length?' — '+R.unchanged.length+' booking(s) verified':'')+
+          (R.gone.length?' · '+R.gone.length+' cancelled earlier':'')+
+          (R.past.length?' · '+R.past.length+' historical':'')+'.</div>';
+      }
+      return '<details class="bhotel"'+(np?' open':'')+'><summary tabindex="0">'+head+'</summary>'+body+'</details>';
+    }).join('');
+    $('b-groups').innerHTML=html;
+  }
+  $('b-groups').addEventListener('change',function(e){
+    var d=e.target.dataset||{};
+    var p;
+    if(d.bu!=null){ p=d.bu.split(':'); B.items[+p[0]].res.updates[+p[1]].items[+p[2]].ck=e.target.checked; }
+    else if(d.bn!=null){ p=d.bn.split(':'); B.items[+p[0]].res.news[+p[1]].ck=e.target.checked; }
+    else if(d.bc!=null){ p=d.bc.split(':'); B.items[+p[0]].res.cancels[+p[1]].ck=e.target.checked; }
+    else return;
+    renderBatchReview();
+  });
+  $('b-groups').addEventListener('click',function(e){
+    var d=e.target.dataset||{};
+    if(d.ball!=null){
+      if(!confirm('Approve every proposed change for this hotel without ticking them one by one?')) return;
+      setHotelApprovals(+d.ball,true);
+    }else if(d.bnone!=null) setHotelApprovals(+d.bnone,false);
+  });
+  function setHotelApprovals(i,val){
+    var R=B.items[i].res;
+    R.updates.forEach(function(u){ u.items.forEach(function(x){ x.ck=val; }); });
+    R.news.forEach(function(x){ x.ck=val; });
+    R.cancels.forEach(function(x){ x.ck=val; });
+    renderBatchReview();
+  }
+  $('b-approve-all').addEventListener('click',function(){
+    var tot=0; B.items.forEach(function(it){ tot+=bProposals(it); });
+    if(!tot) return;
+    if(!confirm('Approve all '+tot+' proposed changes across every hotel?\n\n'+
+      'Bulk approval skips the hotel-by-hotel review. Possible cancellations are included — '+
+      'untick any loadmaster / maintenance rows first.')) return;
+    B.items.forEach(function(it,i){ if(!it.error) setHotelApprovals(i,true); });
+  });
+  $('b-approve-none').addEventListener('click',function(){
+    B.items.forEach(function(it,i){ if(!it.error) setHotelApprovals(i,false); });
+  });
+
+  /* ---------- apply & save back ---------- */
+  function buildOutputFor(it,todayISO){
+    var R=it.res;
+    var updAll=[];
+    R.updates.forEach(function(u){
+      var items=u.items.filter(function(x){return x.ck;}).map(function(x){
+        return {col:x.col,newText:x.newText,cat:x.cat,sub:x.sub,confCol:x.confCol,noFill:x.noFill};
+      });
+      if(items.length) updAll.push({srcRow:u.h.srcRow,items:items});
+    });
+    var cancels=R.cancels.filter(function(c){return c.ck;}).map(function(c){return c.h.srcRow;});
+    var news=R.news.filter(function(nx){return nx.ck;}).map(function(nx){return nx.m;});
+    return buildOutput(it.grid,updAll,cancels,news,it.rows,todayISO);
+  }
+  $('b-apply').addEventListener('click',function(){
+    if(!B.items) return;
+    var todo=B.items.filter(function(it){ return !it.error&&bApproved(it)>0; });
+    if(!todo.length){ toast('Nothing approved yet — tick the changes to write first.'); return; }
+    var inPlace=todo.filter(function(it){return it.handle;}).length;
+    if(!confirm('Write '+todo.length+' updated workbook(s)'+(inPlace?' back to their source files':'')+'?\n\n'+
+      'Each gets a new "'+tabName()+'" sheet with tonight\'s approved changes; every existing tab is kept byte-for-byte.')) return;
+    var now=new Date();
+    var todayISO=isoParts(now.getFullYear(),now.getMonth()+1,now.getDate());
+    var log=$('b-outlog'); log.innerHTML='';
+    var chain=Promise.resolve();
+    todo.forEach(function(it){
+      chain=chain.then(function(){
+        var out=buildOutputFor(it,todayISO);
+        return appendSheetToXlsx(it.u8,tabName(),out).then(function(bytes){
+          it.outBytes=bytes;
+          if(it.handle&&it.handle.createWritable){
+            return it.handle.createWritable().then(function(w){
+              return w.write(bytes).then(function(){ return w.close(); });
+            }).then(function(){ it.saved='saved in place'; });
+          }
+          downloadBytes(bytes,it.name,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          it.saved='downloaded';
+          return null;
+        });
+      }).catch(function(err){
+        it.saved=null; it.saveError=String(err&&err.message||err);
+      }).then(function(){
+        log.innerHTML+='<li class="'+(it.saved?'ok2':'bad')+'">'+escHtml(it.name)+' — '+
+          escHtml(it.saved||('FAILED: '+it.saveError))+'</li>';
+      });
+    });
+    chain.then(function(){
+      var okN=todo.filter(function(it){return it.saved;}).length;
+      $('b-outmsg').textContent=okN+' of '+todo.length+' workbook(s) written.';
+      toast(okN+' workbook(s) updated — existing tabs untouched');
+    });
+  });
+
+  /* ---------- generate all emails ---------- */
+  $('b-emails').addEventListener('click',function(){
+    if(!B.items) return;
+    var name=$('initials').value||'';
+    if(!name){ toast('Pick your initials first — they replace [NAME] in the signature.'); return; }
+    var candidates=B.items.filter(function(it){ return !it.error; });
+    var pendingApply=candidates.filter(function(it){ return bApproved(it)>0&&!it.outBytes; });
+    if(pendingApply.length){
+      toast('Apply & save first — '+pendingApply.length+' hotel(s) have approved changes not written yet.');
+      return;
+    }
+    var missing=candidates.filter(function(it){ return !it.contact; });
+    var needChg=candidates.some(function(it){ return it.outBytes; });
+    var needNoc=candidates.some(function(it){ return !it.outBytes&&it.contact; });
+    if(needChg&&!BASES.chg){ toast('Load the "changes" base email first.'); return; }
+    if(needNoc&&!BASES.noc){ toast('Load the "no changes" base email first.'); return; }
+    var outName='Ready to send - '+tabName();
+    var getOut=(B.workDir&&B.workDir.getDirectoryHandle)
+      ? B.workDir.getDirectoryHandle(outName,{create:true})
+      : Promise.resolve(null);
+    var log=$('b-outlog');
+    getOut.catch(function(){ return null; }).then(function(outDir){
+      var chain=Promise.resolve(), okN=0;
+      candidates.forEach(function(it){
+        chain=chain.then(function(){
+          if(!it.contact){ it.mail='no contact — skipped'; it.mailBad=true; return null; }
+          var hasCh=!!it.outBytes;
+          var base=hasCh?BASES.chg:BASES.noc;
+          var bytes=msgClone(b64ToBytes(base.b64),{
+            to:[it.contact.to].filter(Boolean),
+            cc:it.contact.cc||[],
+            attachment:hasCh?{name:it.name,bytes:it.outBytes}:null,
+            token:'[NAME]', name:name
+          });
+          var fname=((it.contact.hotelName||it.contact.hotelKey||it.name).replace(/[\\/:*?"<>|]+/g,' ').trim()||'hotel')+'.msg';
+          if(outDir){
+            return outDir.getFileHandle(fname,{create:true}).then(function(fh){
+              return fh.createWritable();
+            }).then(function(w){
+              return w.write(bytes).then(function(){ return w.close(); });
+            }).then(function(){ it.mail=(hasCh?'changes':'no-changes')+' email → '+outName+'/'+fname; okN++; });
+          }
+          downloadBytes(bytes,fname,'application/vnd.ms-outlook');
+          it.mail=(hasCh?'changes':'no-changes')+' email downloaded ('+fname+')'; okN++;
+          return null;
+        }).catch(function(err){
+          it.mail='FAILED: '+String(err&&err.message||err); it.mailBad=true;
+        }).then(function(){
+          if(it.mail) log.innerHTML+='<li class="'+(it.mailBad?'bad':'ok2')+'">'+escHtml(it.name)+' — '+escHtml(it.mail)+'</li>';
+        });
+      });
+      chain.then(function(){
+        $('b-outmsg').textContent=okN+' email(s) ready to send'+
+          (missing.length?' — '+missing.length+' hotel(s) skipped (no contact)':'')+'.';
+        toast(okN+' ready-to-send email(s) generated — open each, glance, send');
+      });
     });
   });
 

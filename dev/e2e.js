@@ -337,6 +337,149 @@ function ok(msg) { console.log('  ✓ ' + msg); }
   if (deadSpan < 1) fail('dead name not rendered struck/dim in the grid');
   ok('browser detects grey/struck rows: Denny left alone, Gary "cancelled earlier"');
 
+  // ================= BATCH NIGHT MODE =================
+  const page3 = await ctx.newPage();
+  page3.on('pageerror', e => fail('batch page error: ' + e.message));
+  page3.on('dialog', d => d.accept());
+  // force the no-File-System-Access fallback so the flow is automatable
+  await page3.addInitScript(() => { try { delete window.showDirectoryPicker; } catch (e) { window.showDirectoryPicker = undefined; } });
+  await page3.goto('file://' + path.join(here, 'built.html'));
+  await page3.click('#btn-batch');
+  if (!(await page3.isVisible('#batchwrap'))) fail('batch mode did not open');
+  if (!(await page3.isVisible('#b-fallback'))) fail('fallback file picker not shown without FS Access');
+  if (await page3.isVisible('#step3')) fail('classic flow should be hidden in batch mode');
+  ok('batch mode opens; classic flow hidden; fallback path active');
+
+  // master into the (relocated) master drop zone
+  async function dropFile3(selector, filePath, asName) {
+    const b64 = fs.readFileSync(filePath).toString('base64');
+    await page3.evaluate(({ selector, b64, name }) => {
+      const bin = atob(b64); const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const dt = new DataTransfer(); dt.items.add(new File([arr], name));
+      document.querySelector(selector).dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt }));
+    }, { selector, b64, name: asName || path.basename(filePath) });
+  }
+  await dropFile3('#drop-master', path.join(here, 'master.xlsx'));
+  await page3.waitForFunction(() => document.querySelector('#drop-master .filemeta'));
+
+  // hotel files through the fallback multi-file input, batch-named
+  await page3.setInputFiles('#b-files', [
+    { name: 'Hotel Requirements ANC JUL.xlsx', mimeType: 'application/octet-stream', buffer: fs.readFileSync(path.join(here, 'hotel.xlsx')) },
+    { name: 'Hotel Requirements ZZZ JUL.xlsx', mimeType: 'application/octet-stream', buffer: fs.readFileSync(path.join(here, 'hotel-nochange.xlsx')) },
+    { name: 'random-notes.xlsx', mimeType: 'application/octet-stream', buffer: fs.readFileSync(path.join(here, 'hotel-nochange.xlsx')) }
+  ]);
+  const sel = await page3.textContent('#b-filelist');
+  if (!sel.includes('2 of 3 selected')) fail('prefix auto-selection wrong: ' + sel);
+  ok('folder listing: "Hotel Requirements*" auto-selected, stray file left out');
+
+  // contacts: add two via the manager
+  async function addContact(key, name, to, cc) {
+    await page3.click('#b-c-add');
+    await page3.fill('#b-c-key', key);
+    await page3.fill('#b-c-name', name);
+    await page3.fill('#b-c-to', to);
+    await page3.fill('#b-c-cc', cc);
+    await page3.click('#b-c-save');
+  }
+  await addContact('ANC', 'Airport Grand Anchorage', 'frontdesk@anchoragegrand.com', 'crewtravel@cargojet.com, bad-address');
+  await addContact('ZZZ', 'ZZZ Suites', 'reception@zzzsuites.com', '');
+  const clist = await page3.textContent('#b-contactlist');
+  if (!clist.includes('ANC') || !clist.includes('ZZZ Suites')) fail('contacts not listed: ' + clist);
+  if (!(await page3.locator('#b-contactlist td.badmail').count())) fail('malformed CC not flagged');
+  const flist = await page3.textContent('#b-filelist');
+  if (!flist.includes('ANC') || !flist.includes('ZZZ')) fail('file list not showing matched contacts');
+  ok('contacts CRUD: added, malformed address flagged, matched to files');
+  // duplicate + delete round trip
+  await page3.click('#b-contactlist [data-cdup="0"]');
+  if (!(await page3.textContent('#b-contactlist')).includes('ANC COPY')) fail('duplicate failed');
+  await page3.click('#b-contactlist [data-cdel="1"]');
+  if ((await page3.textContent('#b-contactlist')).includes('ANC COPY')) fail('delete failed');
+  ok('contact duplicate and delete work');
+
+  // base emails
+  await page3.setInputFiles('#b-basefile-chg', path.join(here, 'base-chg.msg'));
+  await page3.setInputFiles('#b-basefile-noc', path.join(here, 'base-noc.msg'));
+  await page3.waitForFunction(() => document.querySelectorAll('#b-baseprev .bmsgprev .subj').length === 2);
+  const bprev = await page3.textContent('#b-baseprev');
+  if (!bprev.includes('Crew accommodation update') || !bprev.includes('no changes tonight'))
+    fail('base previews wrong: ' + bprev);
+  ok('both base .msg files parsed and previewed');
+
+  // operator identity
+  await page3.selectOption('#initials', 'AK');
+
+  // compare all
+  await page3.click('#b-compare');
+  await page3.waitForSelector('#bstep4:not(.hidden)');
+  await page3.waitForFunction(() => document.querySelectorAll('#b-groups .bhotel').length === 2);
+  const groups = await page3.textContent('#b-groups');
+  if (!groups.includes('Hotel Requirements ANC JUL.xlsx')) fail('ANC group missing');
+  if (!(await page3.locator('#b-groups .bflag.chg').count())) fail('changed hotel not flagged');
+  if (!(await page3.locator('#b-groups .bflag.same').count())) fail('no-changes hotel not flagged');
+  ok('batch review: both hotels in one pass, correctly flagged');
+
+  // approve everything for the changed hotel (dialog auto-accepted)
+  await page3.click('#b-groups [data-ball="0"]');
+  await page3.waitForFunction(() => {
+    const t = document.getElementById('b-appcount').textContent;
+    return /^(\d+) of \1 /.test(t) && !t.startsWith('0 ');
+  });
+  ok('per-hotel approve-all with confirmation');
+
+  // apply & save (fallback -> download of the updated ANC workbook)
+  const [dlWb] = await Promise.all([page3.waitForEvent('download'), page3.click('#b-apply')]);
+  const wbPath = path.join(here, 'dl-batch-anc.xlsx');
+  await dlWb.saveAs(wbPath);
+  {
+    const XLSX2 = require('./package/dist/xlsx.full.min.js');
+    const wb = XLSX2.read(fs.readFileSync(wbPath), { type: 'buffer' });
+    const before = XLSX2.read(fs.readFileSync(path.join(here, 'hotel.xlsx')), { type: 'buffer' });
+    if (wb.SheetNames.length !== before.SheetNames.length + 1) fail('batch save-back: sheet not added');
+  }
+  ok('apply & save writes the updated workbook (new tab added, originals kept)');
+
+  // generate all emails: expect exactly two .msg downloads
+  const dls = [];
+  page3.on('download', d => dls.push(d));
+  await page3.click('#b-emails');
+  await page3.waitForFunction(() => document.querySelectorAll('#b-outlog li').length >= 3, null, { timeout: 15000 });
+  const outlog = await page3.textContent('#b-outlog');
+  const msgDls = [];
+  for (const d of dls) if (d.suggestedFilename().endsWith('.msg')) msgDls.push(d);
+  if (msgDls.length !== 2) fail('expected 2 .msg downloads, got ' + msgDls.length + ' (log: ' + outlog + ')');
+  const msgFiles = {};
+  for (const d of msgDls) {
+    const p2 = path.join(here, 'dl-' + d.suggestedFilename().replace(/\s+/g, '_'));
+    await d.saveAs(p2);
+    msgFiles[d.suggestedFilename()] = p2;
+  }
+  {
+    const XLSX2 = require('./package/dist/xlsx.full.min.js');
+    const C2 = require('./core.js');
+    const anc = msgFiles['Airport Grand Anchorage.msg'], zzz = msgFiles['ZZZ Suites.msg'];
+    if (!anc || !zzz) fail('email filenames wrong: ' + Object.keys(msgFiles).join(', '));
+    const a = C2.msgParse(new Uint8Array(fs.readFileSync(anc)));
+    if (a.subject !== 'Crew accommodation update') fail('ANC email used wrong base: ' + a.subject);
+    if (a.attachCount !== 1) fail('ANC email missing the workbook attachment');
+    if (a.tokenCount !== 0) fail('ANC email still contains [NAME]');
+    if (a.recipCount !== 3) fail('ANC email recipients wrong: ' + a.recipCount);
+    const cfb = XLSX2.CFB.read(fs.readFileSync(anc), { type: 'buffer' });
+    const att = XLSX2.CFB.find(cfb, '/__attach_version1.0_#00000000/__substg1.0_37010102');
+    const wbBytes = fs.readFileSync(wbPath);
+    if (Buffer.compare(Buffer.from(att.content), wbBytes) !== 0)
+      fail('attached workbook differs from the saved-back workbook (must be the SAME artifact)');
+    const to = XLSX2.CFB.find(cfb, '/__recip_version1.0_#00000000/__substg1.0_3003001F');
+    if (C2.msgFromU16(new Uint8Array(to.content)) !== 'frontdesk@anchoragegrand.com') fail('ANC To wrong');
+    const html = XLSX2.CFB.find(cfb, '/__substg1.0_10130102');
+    if (!Buffer.from(html.content).toString('latin1').includes('AK')) fail('operator name not swapped into the body');
+    const z = C2.msgParse(new Uint8Array(fs.readFileSync(zzz)));
+    if (z.subject !== 'Crew accommodation - no changes tonight') fail('ZZZ email used wrong base: ' + z.subject);
+    if (z.attachCount !== 0) fail('no-changes email must not carry an attachment');
+    if (z.recipCount !== 1) fail('ZZZ recipients wrong: ' + z.recipCount);
+  }
+  ok('emails: changes base + attachment for ANC, no-changes base for ZZZ, [NAME] -> AK, same artifact attached');
+
   await browser.close();
   console.log('E2E PASSED');
 })().catch(e => fail(e.stack || String(e)));

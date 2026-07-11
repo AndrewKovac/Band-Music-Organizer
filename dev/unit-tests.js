@@ -600,5 +600,168 @@ assert(C.hotelSimilarity('Hilton Anchorage', 'Marriott Fairbanks') === 0, 'diffe
     const wb3 = global.XLSX.read(bytes2, { type: 'buffer' });
     eq(wb3.SheetNames[wb3.SheetNames.length - 1], 'JUL 10 AK N (2)', 'clashing tab name suffixed');
   }
+
+  /* =================== .msg engine =================== */
+  const X = global.XLSX;
+  function buildBaseMsg(o) {
+    o = o || {};
+    const cfb = X.CFB.utils.cfb_new();
+    const put = (pp, b) => X.CFB.utils.cfb_add(cfb, pp, Array.from(b));
+    const subj = C.msgU16(o.subject || 'Crew accommodation update');
+    const cls = C.msgU16('IPM.Note');
+    const bodyTxt = o.body != null ? o.body : 'Hello,\nSee attached.\nRegards,\n[NAME]\nCargojet';
+    const body = C.msgU16(bodyTxt);
+    put('/__substg1.0_0037001F', subj);
+    put('/__substg1.0_001A001F', cls);
+    put('/__substg1.0_1000001F', body);
+    let rows = [
+      C.propRowFixed(0x0E070003, 0x1),
+      C.propRowVar(0x0037001F, C.propVarSize(0x0037001F, subj.length)),
+      C.propRowVar(0x001A001F, C.propVarSize(0x001A001F, cls.length)),
+      C.propRowVar(0x1000001F, C.propVarSize(0x1000001F, body.length))
+    ];
+    if (o.html) {
+      const h = C.msgLatinBytes('<html><body><p>Table stays <b>bold</b>.</p><p>Regards,<br>[NAME]</p></body></html>');
+      put('/__substg1.0_10130102', h);
+      rows.push(C.propRowVar(0x10130102, h.length));
+    }
+    if (o.rtf) {
+      const w = C.lzfuWrapRaw('{\\rtf1\\ansi Regards, [NAME] end}');
+      put('/__substg1.0_10090102', w);
+      rows.push(C.propRowVar(0x10090102, w.length));
+    }
+    put('/__properties_version1.0', C.propsBuild(new Uint8Array(32), rows));
+    put('/__nameid_version1.0/__substg1.0_00020102', [0, 0, 0, 0]);
+    const out = X.CFB.write(cfb, { type: 'buffer' });
+    return new Uint8Array(out);
+  }
+
+  /* compressed-RTF codec */
+  {
+    const round = C.lzfuDecompress(C.lzfuWrapRaw('{\\rtf1 hello}'));
+    eq(round, '{\\rtf1 hello}', 'raw (MELA) round-trip');
+    /* hand-built LZFu: one dictionary reference into the spec dictionary, then end marker */
+    const lz = new Uint8Array(16 + 5);
+    C.msgWr32(lz, 0, 17); C.msgWr32(lz, 4, 6); C.msgWr32(lz, 8, 0x75465A4C); C.msgWr32(lz, 12, 0);
+    lz.set([0x03, 0x00, 0x04, 0x0D, 0x50], 16);   /* ref(off 0,len 6), end(off 213) */
+    eq(C.lzfuDecompress(lz), '{\\rtf1', 'true LZFu dictionary reference decoded');
+    eq(C.rtfEscape('a\\b{c}'), 'a\\\\b\\{c\\}', 'rtf escaping');
+  }
+
+  /* base parse (preview info) */
+  {
+    const info = C.msgParse(buildBaseMsg({ html: true }));
+    eq(info.subject, 'Crew accommodation update', 'msg subject read');
+    eq(info.tokenCount, 2, '[NAME] counted across body + html');
+    eq(info.hasHtml, true, 'html body detected');
+    eq(info.attachCount, 0, 'no attachments in base');
+    eq(info.bodyPreview.includes('Regards'), true, 'body preview text');
+  }
+
+  /* the generation contract: clone = same email, new envelope only */
+  {
+    const wbBytes = new Uint8Array(fsm.readFileSync(__dirname + '/fixtures/real1.hotel.xlsx'));
+    const base = buildBaseMsg({ html: true });
+    const out = C.msgClone(base, {
+      to: ['frontdesk@bqkhotel.com'],
+      cc: ['crewtravel@cargojet.com', 'ops@cargojet.com'],
+      attachment: { name: 'Hotel Requirements BQK.xlsx', bytes: wbBytes },
+      token: '[NAME]', name: 'Andrew K'
+    });
+    const cfb = X.CFB.read(out, { type: 'buffer' });
+    const get = pp => { const e = X.CFB.find(cfb, pp); return e && e.content ? new Uint8Array(e.content) : null; };
+    eq(C.msgFromU16(get('/__substg1.0_0037001F')), 'Crew accommodation update', 'subject untouched');
+    const body = C.msgFromU16(get('/__substg1.0_1000001F'));
+    eq(body.includes('[NAME]'), false, 'token gone from plain body');
+    eq(body.includes('Andrew K'), true, 'operator name in plain body');
+    const html = C.msgLatin(get('/__substg1.0_10130102'));
+    eq(html.includes('[NAME]'), false, 'token gone from html body');
+    eq(html.includes('<b>bold</b>'), true, 'authored formatting untouched');
+    eq(C.msgFromU16(get('/__recip_version1.0_#00000000/__substg1.0_3003001F')), 'frontdesk@bqkhotel.com', 'To recipient written');
+    eq(C.msgFromU16(get('/__recip_version1.0_#00000002/__substg1.0_3003001F')), 'ops@cargojet.com', 'second CC written');
+    const r1p = get('/__recip_version1.0_#00000001/__properties_version1.0');
+    const r1rows = C.propsParse(r1p, 8);
+    let rtype = null;
+    r1rows.forEach(r => { if (C.msgRd32(r, 0) === 0x0C150003) rtype = C.msgRd32(r, 8); });
+    eq(rtype, 2, 'CC recipient typed as CC');
+    const att = get('/__attach_version1.0_#00000000/__substg1.0_37010102');
+    eq(att.length, wbBytes.length, 'attachment byte count');
+    eq(Buffer.compare(Buffer.from(att), Buffer.from(wbBytes)), 0, 'attachment bytes identical to the sheet');
+    eq(C.msgFromU16(get('/__attach_version1.0_#00000000/__substg1.0_3707001F')), 'Hotel Requirements BQK.xlsx', 'attachment filename');
+    const props = get('/__properties_version1.0');
+    eq(C.msgRd32(props, 16), 3, 'recipient count = 3');
+    eq(C.msgRd32(props, 20), 1, 'attachment count = 1');
+    const rows2 = C.propsParse(props, 32);
+    let flags = 0, hasRtfRow = false;
+    rows2.forEach(r => {
+      if (C.msgRd32(r, 0) === 0x0E070003) flags = C.msgRd32(r, 8);
+      if (C.msgRd32(r, 0) === 0x10090102) hasRtfRow = true;
+    });
+    eq((flags & 0x8) !== 0, true, 'MSGFLAG_UNSENT set -> opens as a draft');
+    eq(hasRtfRow, false, 'no stale RTF row when html is authoritative');
+    eq(C.msgFromU16(get('/__substg1.0_0E04001F')), 'frontdesk@bqkhotel.com', 'display-To line');
+    eq(C.msgFromU16(get('/__substg1.0_0E03001F')), 'crewtravel@cargojet.com; ops@cargojet.com', 'display-CC line');
+    const info2 = C.msgParse(out);
+    eq(info2.tokenCount, 0, 'no token anywhere after clone');
+    eq(info2.attachCount, 1, 'parse sees the attachment');
+    eq(info2.recipCount, 3, 'parse sees the recipients');
+  }
+
+  /* RTF-only base: token swapped inside the (re-wrapped) RTF */
+  {
+    const out = C.msgClone(buildBaseMsg({ rtf: true }), { to: ['a@b.co'], cc: [], attachment: null, name: 'AK' });
+    const cfb = X.CFB.read(out, { type: 'buffer' });
+    const e = X.CFB.find(cfb, '/__substg1.0_10090102');
+    const rtf = C.lzfuDecompress(new Uint8Array(e.content));
+    eq(rtf.includes('[NAME]'), false, 'token gone from RTF');
+    eq(rtf.includes('AK'), true, 'name in RTF');
+    const props = new Uint8Array(X.CFB.find(cfb, '/__properties_version1.0').content);
+    eq(C.msgRd32(props, 20), 0, 'no attachment on the no-changes clone');
+  }
+
+  /* batch plumbing */
+  eq(C.isHotelReqFile('Hotel Requirements BQK JUL.xlsx'), true, 'prefix match');
+  eq(C.isHotelReqFile('hotel requirements anc.XLSX'), true, 'case-insensitive');
+  eq(C.isHotelReqFile('Hotel Requirements old.xls'), false, 'xls rejected');
+  eq(C.isHotelReqFile('~$Hotel Requirements BQK.xlsx'), false, 'Excel lock file rejected');
+  eq(C.isHotelReqFile('Master VMO.xlsx'), false, 'non-matching name');
+  eq(C.isHotelReqFile('REQ ANC.xlsx', 'req'), true, 'configurable prefix');
+  {
+    const contacts = [
+      { hotelKey: 'BQK', to: 'b@h.com' },
+      { hotelKey: 'ANC', to: 'a@h.com' },
+      { hotelKey: 'ANC EAST', to: 'ae@h.com' }
+    ];
+    eq(C.matchContactToFile('Hotel Requirements BQK.xlsx', contacts).to, 'b@h.com', 'key matched in filename');
+    eq(C.matchContactToFile('Hotel Requirements ANC EAST 2.xlsx', contacts).to, 'ae@h.com', 'longest key wins');
+    eq(C.matchContactToFile('Hotel Requirements LIM.xlsx', contacts), null, 'no key -> null');
+  }
+  {
+    const d = new Date(2026, 6, 10);
+    eq(C.resolveDateDir(['2024', '2025', '2026'], 'year', d), '2026', 'year folder');
+    eq(C.resolveDateDir(['Archive 2026', 'Misc'], 'year', d), 'Archive 2026', 'year substring');
+    eq(C.resolveDateDir(['06 JUN', '07 JUL', '08 AUG'], 'month', d), '07 JUL', 'month folder by name');
+    eq(C.resolveDateDir(['6', '7', '8'], 'month', d), '7', 'bare month number');
+    eq(C.resolveDateDir(['July', 'June'], 'month', d), 'July', 'full month name');
+    eq(C.resolveDateDir(['JUL A', 'JUL B'], 'month', d), null, 'ambiguous -> null (operator confirms)');
+  }
+  eq(C.validEmail('crew@cargojet.com'), true, 'valid email');
+  eq(C.validEmail('not-an-email'), false, 'invalid email');
+  eq(C.validEmail('a b@c.com'), false, 'space rejected');
+
+  /* comparePipeline: the whole engine as one call (batch mode entry point) */
+  {
+    const m1 = rec('master', { names: ['BROWN BILL'], ciD: '25JUL26', inF: 'AB955', ciT: '16:30' });
+    const m2 = rec('master', { names: ['SAME SUE'], ciD: '26JUL26', inF: 'AB1', ciT: '10:00' });
+    const h1 = rec('hotel', { names: ['BROWN BILL'], ciD: '25JUL26', inF: 'AB955', ciT: '15:00', srcRow: 1 });
+    const h2 = rec('hotel', { names: ['SAME SUE'], ciD: '26JUL26', inF: 'AB1', ciT: '10:00', srcRow: 2 });
+    const R = C.comparePipeline([m1, m2], [h1, h2], { todayISO: '2026-07-10', nowHM: '12:00' });
+    eq(R.updates.length, 1, 'pipeline: one changed booking');
+    eq(R.unchanged.length, 1, 'pipeline: one verified unchanged');
+    eq(R.updates[0].items[0].ck, false, 'pipeline: proposals start unapproved');
+    eq(R.proposalCount, 1, 'pipeline: proposal count');
+    eq(R.hotelPick, 'AIRPORT GRAND', 'pipeline: hotel auto-picked from the sheet');
+  }
+
   console.log('ALL ' + n + ' ASSERTIONS PASSED (+ inline asserts)');
 })().catch(e => { console.error(e); process.exit(1); });
